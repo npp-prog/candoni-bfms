@@ -7,7 +7,7 @@
       "codebase": "bfms",
       "runtime": "nodejs22",
       "ignore": ["node_modules", "src", "test", ".git", "*.log"],
-      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
+      "predeploy": ["npm --prefix functions run build"]
     }
   ],
   "emulators": {
