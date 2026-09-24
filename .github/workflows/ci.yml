@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, development]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - name: Typecheck (web, shared, functions)
+        run: npm run typecheck
+      - name: Unit tests (accounting rules, permissions)
+        run: npm test
+      - name: Security Rules tests (Firestore emulator)
+        run: npm run test:rules
+      - name: Build web + functions
+        run: npm run build
+
+  deploy-backend:
+    needs: verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      # Workload Identity Federation — no service-account key stored in GitHub.
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - name: Deploy rules, indexes, functions
+        run: npx firebase deploy --only firestore,storage,functions --project ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }} --non-interactive

@@ -1,0 +1,49 @@
+{
+  "name": "candoni-bfms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Barangay Financial Management System \u2014 Municipality of Candoni, Negros Occidental",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "functions"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build:web": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "build": "npm run build:web && npm run build -w functions",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && npm run typecheck -w @bfms/shared && npm run typecheck -w functions",
+    "test": "npm test -w @bfms/shared && npm test -w functions",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-bfms \"vitest run --config tests/rules/vitest.config.ts\"",
+    "emulators": "firebase emulators:start --project demo-bfms --import=./.emulator-data --export-on-exit",
+    "bootstrap:admin": "node scripts/bootstrap-super-admin.mjs",
+    "docs:report-matrix": "esbuild scripts/gen-report-matrix.ts --bundle --platform=node --format=esm --log-level=warning | node --input-type=module"
+  },
+  "dependencies": {
+    "@bfms/shared": "*",
+    "firebase": "^11.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "@types/node": "^22.20.4",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "firebase-tools": "^13.35.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.4",
+    "esbuild": "^0.24.0",
+    "firebase-admin": "^13.0.1"
+  }
+}

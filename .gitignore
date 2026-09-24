@@ -1,0 +1,13 @@
+node_modules/
+dist/
+functions/lib/
+.env
+.env.local
+.env.*.local
+*.log
+.emulator-data/
+.firebase/
+coverage/
+service-account*.json
+*-firebase-adminsdk-*.json
+.DS_Store

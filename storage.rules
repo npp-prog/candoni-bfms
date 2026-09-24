@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// BFMS — Firebase Storage Security Rules (docs/architecture/03-security.md §7)
+// Path: barangays/{barangayId}/{fiscalYear}/{module}/{recordId}/{fileName}
+// Access derives from the custom claim token.a = { <BARANGAY|ALL>: [claimCodes] } and the PATH,
+// so an Agboy user cannot read Banga files by editing a URL. Download URLs are not used by the app.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function a() { return request.auth.token.get('a', {}); }
+    // ALL-scope check first: it does not depend on the document, so list queries by
+    // Municipal Accounting are provable without a barangay filter.
+    function hasAnyRole(bid, roles) {
+      return signedIn() && (a().get('ALL', []).hasAny(roles) || a().get(bid, []).hasAny(roles));
+    }
+    function isBarangayId(bid) {
+      return bid in ['AGBOY', 'BANGA', 'CABIA-AN', 'CANINGAY', 'EAST', 'GATUSLAO', 'HABA', 'PAYAUAN', 'WEST'];
+    }
+    // Auditors are NOT given direct read of supporting documents: Storage rules cannot see the parent
+    // record's status, and auditors must not see DRAFT records. They receive files via a server-issued,
+    // status-checked download (Phase 12) and can read FINAL report files below.
+    function readers() { return ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE']; }
+    function uploaders() { return ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE']; }
+    function allowedModule(m) {
+      return m in ['collections', 'deposits', 'disbursements', 'checks', 'cash-advances', 'liquidations',
+                   'petty-cash', 'payroll', 'bank-reconciliation', 'bank-statements', 'property', 'budget',
+                   'trust-funds', 'accounting'];
+    }
+    function allowedType() {
+      return request.resource.contentType.matches('application/pdf')
+        || request.resource.contentType.matches('image/(jpeg|png|webp)')
+        || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    // Supporting documents
+    match /barangays/{bid}/{fy}/{module}/{recordId}/{fileName} {
+      allow read: if isBarangayId(bid) && hasAnyRole(bid, readers());
+      // create only — no overwrite (resource == null) and no delete; replacement = new version file
+      allow create: if isBarangayId(bid)
+        && fy.matches('^[0-9]{4}$')
+        && module != 'reports'
+        && allowedModule(module)
+        && hasAnyRole(bid, uploaders())
+        && resource == null
+        && request.resource.size <= 25 * 1024 * 1024
+        && allowedType();
+      allow update, delete: if false;
+    }
+
+    // Generated official reports (written by Functions via Admin SDK only)
+    match /barangays/{bid}/{fy}/reports/{rest=**} {
+      allow read: if isBarangayId(bid) && hasAnyRole(bid, readers().concat(['AU']));
+      allow write: if false;
+    }
+
+    // Legacy import uploads — Functions only
+    match /imports/{rest=**} {
+      allow read, write: if false;
+    }
+  }
+}

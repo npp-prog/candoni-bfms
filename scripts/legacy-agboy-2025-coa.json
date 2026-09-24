@@ -1,0 +1,1372 @@
+[
+{
+"code": "1-01-01-010",
+"normal": "Debit",
+"name": "Cash - In Local Treasury"
+},
+{
+"code": "1-01-01-020",
+"normal": "Debit",
+"name": "Petty Cash"
+},
+{
+"code": "1-01-02-010",
+"normal": "Debit",
+"name": "Cash in Bank - Local Currency, Current Account"
+},
+{
+"code": "1-02-01-010",
+"normal": "Debit",
+"name": "Investment in Time Deposits"
+},
+{
+"code": "1-03-01-010",
+"normal": "Debit",
+"name": "Accounts Receivable"
+},
+{
+"code": "1-03-01-011",
+"normal": "Debit",
+"name": "Allowance for Impairment - Accounts Receivable"
+},
+{
+"code": "1-03-02-010",
+"normal": "Debit",
+"name": "Due from Local Government Units"
+},
+{
+"code": "1-03-03-010",
+"normal": "Debit",
+"name": "Advances for Payroll"
+},
+{
+"code": "1-03-03-020",
+"normal": "Debit",
+"name": "Advances to Officers and Employees"
+},
+{
+"code": "1-03-04-010",
+"normal": "Debit",
+"name": "Receivables - Disallowances/Charges"
+},
+{
+"code": "1-03-04-020",
+"normal": "Debit",
+"name": "Due from Officers and Employees"
+},
+{
+"code": "1-03-04-990",
+"normal": "Debit",
+"name": "Other Receivables"
+},
+{
+"code": "1-03-04-991",
+"normal": "Credit",
+"name": "Allowance for Impairment - Other Receivables"
+},
+{
+"code": "1-04-01-010",
+"normal": "Debit",
+"name": "Merchandise Inventory"
+},
+{
+"code": "1-04-02-010",
+"normal": "Debit",
+"name": "Welfare Goods for Distribution"
+},
+{
+"code": "1-04-02-020",
+"normal": "Debit",
+"name": "Drugs and Medicines for Distribution"
+},
+{
+"code": "1-04-02-990",
+"normal": "Debit",
+"name": "Other Supplies and Materials for Distribution"
+},
+{
+"code": "1-04-03-010",
+"normal": "Debit",
+"name": "Office Supplies Inventory"
+},
+{
+"code": "1-04-03-020",
+"normal": "Debit",
+"name": "Accountable Forms, Plates and Stickers Inventory"
+},
+{
+"code": "1-04-03-030",
+"normal": "Debit",
+"name": "Construction Materials Inventory"
+},
+{
+"code": "1-04-03-990",
+"normal": "Debit",
+"name": "Other Supplies and Materials Inventory"
+},
+{
+"code": "1-05-01-010",
+"normal": "Debit",
+"name": "Advances to Contractors"
+},
+{
+"code": "1-05-01-990",
+"normal": "Debit",
+"name": "Other Prepayments"
+},
+{
+"code": "1-06-01-010",
+"normal": "Debit",
+"name": "Investment Property - Land"
+},
+{
+"code": "1-06-01-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Investment Property - Land"
+},
+{
+"code": "1-06-01-020",
+"normal": "Debit",
+"name": "Investment Property - Buildings"
+},
+{
+"code": "1-06-01-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Investment Property - Buildings"
+},
+{
+"code": "1-06-01-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Investment Property - Buildings"
+},
+{
+"code": "1-07-01-010",
+"normal": "Debit",
+"name": "Land"
+},
+{
+"code": "1-07-01-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Land"
+},
+{
+"code": "1-07-02-990",
+"normal": "Debit",
+"name": "Other Land Improvements"
+},
+{
+"code": "1-07-02-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Other Land Improvements"
+},
+{
+"code": "1-07-02-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Other Land Improvements"
+},
+{
+"code": "1-07-03-010",
+"normal": "Debit",
+"name": "Road Networks"
+},
+{
+"code": "1-07-03-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Road Networks"
+},
+{
+"code": "1-07-03-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Road Networks"
+},
+{
+"code": "1-07-03-020",
+"normal": "Debit",
+"name": "Flood Control Systems"
+},
+{
+"code": "1-07-03-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Flood Control Systems"
+},
+{
+"code": "1-07-03-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Flood Control Systems"
+},
+{
+"code": "1-07-03-030",
+"normal": "Debit",
+"name": "Sewer Systems"
+},
+{
+"code": "1-07-03-031",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Sewer Systems"
+},
+{
+"code": "1-07-03-032",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Sewer Systems"
+},
+{
+"code": "1-07-03-040",
+"normal": "Debit",
+"name": "Water Supply Systems"
+},
+{
+"code": "1-07-03-041",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Water Supply Systems"
+},
+{
+"code": "1-07-03-042",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Water Supply Systems"
+},
+{
+"code": "1-07-03-050",
+"normal": "Debit",
+"name": "Parks, Plazas and Monuments"
+},
+{
+"code": "1-07-03-051",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Parks, Plazas and Monuments"
+},
+{
+"code": "1-07-03-052",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Parks, Plazas and Monuments"
+},
+{
+"code": "1-07-03-990",
+"normal": "Debit",
+"name": "Other Infrastructure Assets"
+},
+{
+"code": "1-07-03-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Other Infrastructure Assets"
+},
+{
+"code": "1-07-03-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Other Infrastructure Assets"
+},
+{
+"code": "1-07-04-010",
+"normal": "Debit",
+"name": "Buildings"
+},
+{
+"code": "1-07-04-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Buildings"
+},
+{
+"code": "1-07-04-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Buildings"
+},
+{
+"code": "1-07-04-020",
+"normal": "Debit",
+"name": "School Buildings"
+},
+{
+"code": "1-07-04-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - School Buildings"
+},
+{
+"code": "1-07-04-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -School Buildings"
+},
+{
+"code": "1-07-04-030",
+"normal": "Debit",
+"name": "Hospitals and Health Centers"
+},
+{
+"code": "1-07-04-031",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Hospitals and Health Centers"
+},
+{
+"code": "1-07-04-032",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Hospitals and Health Centers"
+},
+{
+"code": "1-07-04-040",
+"normal": "Debit",
+"name": "Markets"
+},
+{
+"code": "1-07-04-041",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Markets"
+},
+{
+"code": "1-07-04-042",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Markets"
+},
+{
+"code": "1-07-04-990",
+"normal": "Debit",
+"name": "Other Structures"
+},
+{
+"code": "1-07-04-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Structures"
+},
+{
+"code": "1-07-04-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Structures"
+},
+{
+"code": "1-07-05-010",
+"normal": "Debit",
+"name": "Machinery"
+},
+{
+"code": "1-07-05-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Machinery"
+},
+{
+"code": "1-07-05-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Machinery"
+},
+{
+"code": "1-07-05-020",
+"normal": "Debit",
+"name": "Office Equipment"
+},
+{
+"code": "1-07-05-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Office Equipment"
+},
+{
+"code": "1-07-05-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Office Equipment"
+},
+{
+"code": "1-07-05-030",
+"normal": "Debit",
+"name": "Information and Communication-Technology Equipment"
+},
+{
+"code": "1-07-05-031",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Information and Communication Technology Equipment"
+},
+{
+"code": "1-07-05-032",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Information and Communication Technology Equipment"
+},
+{
+"code": "1-07-05-040",
+"normal": "Debit",
+"name": "Communication Equipment"
+},
+{
+"code": "1-07-05-041",
+"normal": "Credit",
+"name": "Accumulated Depreciation -Communication Equipment"
+},
+{
+"code": "1-07-05-042",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Communication Equipment"
+},
+{
+"code": "1-07-05-050",
+"normal": "Debit",
+"name": "Construction and Heavy Equipment"
+},
+{
+"code": "1-07-05-051",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Construction and Heavy Equipment"
+},
+{
+"code": "1-07-05-052",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Construction and Heavy Equipment"
+},
+{
+"code": "1-07-05-060",
+"normal": "Debit",
+"name": "Disaster Response and Rescue Equipment"
+},
+{
+"code": "1-07-05-061",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Disaster Response and Rescue Equipment"
+},
+{
+"code": "1-07-05-062",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Disaster Response and Rescue Equipment"
+},
+{
+"code": "1-07-05-070",
+"normal": "Debit",
+"name": "Military, Police and Security Equipment"
+},
+{
+"code": "1-07-05-071",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Military, Police and Security Equipment"
+},
+{
+"code": "1-07-05-072",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Military, Police and Security Equipment"
+},
+{
+"code": "1-07-05-080",
+"normal": "Debit",
+"name": "Sports Equipment"
+},
+{
+"code": "1-07-05-081",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Sports Equipment"
+},
+{
+"code": "1-07-05-082",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses -Sports Equipment"
+},
+{
+"code": "1-07-05-090",
+"normal": "Debit",
+"name": "Technical and Scientific Equipment"
+},
+{
+"code": "1-07-05-091",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Technical and Scientific Equipment"
+},
+{
+"code": "1-07-05-092",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Technical and Scientific Equipment"
+},
+{
+"code": "1-07-05-990",
+"normal": "Debit",
+"name": "Other Machinery and Equipment"
+},
+{
+"code": "1-07-05-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Machinery and Equipment"
+},
+{
+"code": "1-07-05-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Machinery and Equipment"
+},
+{
+"code": "1-07-06-010",
+"normal": "Debit",
+"name": "Motor Vehicles"
+},
+{
+"code": "1-07-06-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Motor Vehicles"
+},
+{
+"code": "1-07-06-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Motor Vehicles"
+},
+{
+"code": "1-07-06-020",
+"normal": "Debit",
+"name": "Watercrafts"
+},
+{
+"code": "1-07-06-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Watercrafts"
+},
+{
+"code": "1-07-06-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Watercrafts"
+},
+{
+"code": "1-07-06-990",
+"normal": "Debit",
+"name": "Other Transportation Equipment"
+},
+{
+"code": "1-07-06-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Transportation Equipment"
+},
+{
+"code": "1-07-06-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Transportation Equipment"
+},
+{
+"code": "1-07-07-010",
+"normal": "Debit",
+"name": "Furniture and Fixtures"
+},
+{
+"code": "1-07-07-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Furniture and Fixtures"
+},
+{
+"code": "1-07-07-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Furniture and Fixtures"
+},
+{
+"code": "1-07-07-020",
+"normal": "Debit",
+"name": "Books"
+},
+{
+"code": "1-07-07-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Books"
+},
+{
+"code": "1-07-07-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Books"
+},
+{
+"code": "1-07-08-010",
+"normal": "Debit",
+"name": "Leased Assets, Land"
+},
+{
+"code": "1-07-08-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets,Land"
+},
+{
+"code": "1-07-08-020",
+"normal": "Debit",
+"name": "Leased Assets, Buildings and Other Structures"
+},
+{
+"code": "1-07-08-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Leased Assets,Buildings and Other Structures"
+},
+{
+"code": "1-07-08-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets,Buildings and Other Structures"
+},
+{
+"code": "1-07-08-030",
+"normal": "Debit",
+"name": "Leased Assets, Machinery and Equipment"
+},
+{
+"code": "1-07-08-031",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Leased Assets,Machinery and Equipment"
+},
+{
+"code": "1-07-08-032",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets,Machinery and Equipment"
+},
+{
+"code": "1-07-08-040",
+"normal": "Debit",
+"name": "Leased Assets, Transportation Equipment"
+},
+{
+"code": "1-07-08-041",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Leased Assets, Transportation Equipment"
+},
+{
+"code": "1-07-08-042",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets,Transportation Equipment"
+},
+{
+"code": "1-07-08-990",
+"normal": "Debit",
+"name": "Other Leased Assets"
+},
+{
+"code": "1-07-08-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Leased Assets"
+},
+{
+"code": "1-07-08-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Leased Assets"
+},
+{
+"code": "1-07-09-010",
+"normal": "Debit",
+"name": "Leased Assets Improvements, Land"
+},
+{
+"code": "1-07-09-011",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Leased Assets Improvements, Land"
+},
+{
+"code": "1-07-09-012",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets Improvements, Land"
+},
+{
+"code": "1-07-09-020",
+"normal": "Debit",
+"name": "Leased Assets Improvements, Buildings"
+},
+{
+"code": "1-07-09-021",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Leased Assets Improvements, Buildings"
+},
+{
+"code": "1-07-09-022",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Leased Assets Improvements, Buildings"
+},
+{
+"code": "1-07-09-990",
+"normal": "Debit",
+"name": "Other Leased Assets Improvements"
+},
+{
+"code": "1-07-09-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Leased Assets Improvements"
+},
+{
+"code": "1-07-09-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Leased Assets Improvements"
+},
+{
+"code": "1-07-10-010",
+"normal": "Debit",
+"name": "Construction in Progress - Land Improvements"
+},
+{
+"code": "1-07-10-020",
+"normal": "Debit",
+"name": "Construction in Progress - Infrastructure Assets"
+},
+{
+"code": "1-07-10-030",
+"normal": "Debit",
+"name": "Construction in Progress - Buildings and Other Structures"
+},
+{
+"code": "1-07-10-040",
+"normal": "Debit",
+"name": "Construction in Progress - Leased Assets"
+},
+{
+"code": "1-07-10-050",
+"normal": "Debit",
+"name": "Construction in Progress - Leased Assets Improvements"
+},
+{
+"code": "1-07-99-990",
+"normal": "Debit",
+"name": "Other Property, Plant and Equipment"
+},
+{
+"code": "1-07-99-991",
+"normal": "Credit",
+"name": "Accumulated Depreciation - Other Property,Plant and Equipment"
+},
+{
+"code": "1-07-99-992",
+"normal": "Credit",
+"name": "Accumulated Impairment Losses - Other Property,Plant and Equipment"
+},
+{
+"code": "1-08-01-010",
+"normal": "Debit",
+"name": "Biological Assets"
+},
+{
+"code": "2-01-01-010",
+"normal": "Credit",
+"name": "Accounts Payable"
+},
+{
+"code": "2-01-01-020",
+"normal": "Credit",
+"name": "Due to Officers and Employees"
+},
+{
+"code": "2-01-01-030",
+"normal": "Credit",
+"name": "Interest Payable"
+},
+{
+"code": "2-01-01-040",
+"normal": "Credit",
+"name": "Operating Lease Payable"
+},
+{
+"code": "2-01-02-010",
+"normal": "Credit",
+"name": "Leave Benefits Payable"
+},
+{
+"code": "2-01-02-010",
+"normal": "Credit",
+"name": "Other Provisions"
+},
+{
+"code": "2-01-03-010",
+"normal": "Credit",
+"name": "Loans Payable - Domestic"
+},
+{
+"code": "2-02-01-010",
+"normal": "Credit",
+"name": "Due to BIR"
+},
+{
+"code": "2-02-01-020",
+"normal": "Credit",
+"name": "Due to GSIS"
+},
+{
+"code": "2-02-01-030",
+"normal": "Credit",
+"name": "Due to Pag-IBIG"
+},
+{
+"code": "2-02-01-040",
+"normal": "Credit",
+"name": "Due to PhilHealth"
+},
+{
+"code": "2-02-01-050",
+"normal": "Credit",
+"name": "Due to NGAs"
+},
+{
+"code": "2-02-01-060",
+"normal": "Credit",
+"name": "Due to GOCCs"
+},
+{
+"code": "2-02-01-070",
+"normal": "Credit",
+"name": "Due to LGUs"
+},
+{
+"code": "2-03-01-010",
+"normal": "Credit",
+"name": "Trust Liabilities"
+},
+{
+"code": "2-03-01-020",
+"normal": "Credit",
+"name": "Guaranty/Security Deposits Payable"
+},
+{
+"code": "2-03-01-030",
+"normal": "Credit",
+"name": "Trust Liabilities - Disaster Risk Reduction and Management Fund (DRRMF)"
+},
+{
+"code": "2-03-01-040",
+"normal": "Credit",
+"name": "Trust Liabilities - SK Funds"
+},
+{
+"code": "2-99-99-990",
+"normal": "Credit",
+"name": "Other Payables"
+},
+{
+"code": "3-01-01-010",
+"normal": "Credit",
+"name": "Government Equity"
+},
+{
+"code": "3-01-01-020",
+"normal": "Credit",
+"name": "Prior Years' Adjustments"
+},
+{
+"code": "3-01-02-010",
+"normal": "Credit",
+"name": "Revenue and Expense Summary"
+},
+{
+"code": "4-01-01-010",
+"normal": "Credit",
+"name": "Real Property Tax"
+},
+{
+"code": "4-01-02-010",
+"normal": "Credit",
+"name": "Business Tax"
+},
+{
+"code": "4-01-02-020",
+"normal": "Credit",
+"name": "Share on the tax from sand, gravel and other quarry products"
+},
+{
+"code": "4-01-03-010",
+"normal": "Credit",
+"name": "Fees and Charges on commercial breeding of fighting cocks, cockfights and cockpits"
+},
+{
+"code": "4-01-03-020",
+"normal": "Credit",
+"name": "Fees and Charges on places of recreation which charge admission fees"
+},
+{
+"code": "4-01-03-030",
+"normal": "Credit",
+"name": "Fees and Charges on billboards, signboards,neon signs and outdoor advertisements"
+},
+{
+"code": "4-01-04-010",
+"normal": "Credit",
+"name": "Share from Internal Revenue Collections"
+},
+{
+"code": "4-01-04-990",
+"normal": "Credit",
+"name": "Other Taxes"
+},
+{
+"code": "4-01-05-010",
+"normal": "Credit",
+"name": "Tax Revenue - Fines and Penalties- Property"
+},
+{
+"code": "4-01-05-020",
+"normal": "Credit",
+"name": "Tax Revenue - Fines and Penalties-Goods and Services"
+},
+{
+"code": "4-01-05-030",
+"normal": "Credit",
+"name": "Tax Revenue - Fines and Penalties- Others"
+},
+{
+"code": "4-02-01-010",
+"normal": "Credit",
+"name": "Subsidy from National Government"
+},
+{
+"code": "4-02-01-020",
+"normal": "Credit",
+"name": "Subsidy from Other Local Government Units"
+},
+{
+"code": "4-02-01-030",
+"normal": "Credit",
+"name": "Transfer of Unspent Previous Year's LDRRMF"
+},
+{
+"code": "4-03-01-010",
+"normal": "Credit",
+"name": "Share from National Wealth"
+},
+{
+"code": "4-03-02-010",
+"normal": "Credit",
+"name": "Grants and Donations in Cash"
+},
+{
+"code": "4-03-02-020",
+"normal": "Credit",
+"name": "Grants and Donations in Kind"
+},
+{
+"code": "4-04-01-010",
+"normal": "Credit",
+"name": "Clearance and Certification Fees"
+},
+{
+"code": "4-04-01-990",
+"normal": "Credit",
+"name": "Other Service Revenue"
+},
+{
+"code": "4-04-02-010",
+"normal": "Credit",
+"name": "Garbage Fees"
+},
+{
+"code": "4-04-02-020",
+"normal": "Credit",
+"name": "Market Fees"
+},
+{
+"code": "4-04-02-990",
+"normal": "Credit",
+"name": "Other Business Income"
+},
+{
+"code": "4-05-01-010",
+"normal": "Credit",
+"name": "Gain on Sale of Property, Plant and Equipment"
+},
+{
+"code": "4-05-01-020",
+"normal": "Credit",
+"name": "Gain on Revaluation of Biological Assets"
+},
+{
+"code": "5-01-01-010",
+"normal": "Debit",
+"name": "Salaries and Wages - Regular"
+},
+{
+"code": "5-01-01-020",
+"normal": "Debit",
+"name": "Salaries and Wages - Casual/Contractual"
+},
+{
+"code": "5-01-02-010",
+"normal": "Debit",
+"name": "Personal Economic Relief Allowance (PERA)"
+},
+{
+"code": "5-01-02-020",
+"normal": "Debit",
+"name": "Clothing/Uniform Allowance"
+},
+{
+"code": "5-01-02-030",
+"normal": "Debit",
+"name": "Subsistence Allowance"
+},
+{
+"code": "5-01-02-040",
+"normal": "Debit",
+"name": "Productivity Incentive Allowance"
+},
+{
+"code": "5-01-02-050",
+"normal": "Debit",
+"name": "Honoraria"
+},
+{
+"code": "5-01-02-060",
+"normal": "Debit",
+"name": "Year End Bonus"
+},
+{
+"code": "5-01-02-070",
+"normal": "Debit",
+"name": "Cash Gift"
+},
+{
+"code": "5-01-02-990",
+"normal": "Debit",
+"name": "Other Bonuses and Allowances"
+},
+{
+"code": "5-01-03-010",
+"normal": "Debit",
+"name": "Retirement and Life Insurance Premiums"
+},
+{
+"code": "5-01-03-020",
+"normal": "Debit",
+"name": "Pag-IBIG Contributions"
+},
+{
+"code": "5-01-03-030",
+"normal": "Debit",
+"name": "PhilHealth Contributions"
+},
+{
+"code": "5-01-03-040",
+"normal": "Debit",
+"name": "Employees Compensation Insurance Premiums"
+},
+{
+"code": "5-01-04-010",
+"normal": "Debit",
+"name": "Terminal Leave Benefits"
+},
+{
+"code": "5-01-04-990",
+"normal": "Debit",
+"name": "Other Personnel Benefits"
+},
+{
+"code": "5-02-01-010",
+"normal": "Debit",
+"name": "Travelling Expenses - Local"
+},
+{
+"code": "5-02-01-020",
+"normal": "Debit",
+"name": "Travelling Expenses - Foreign"
+},
+{
+"code": "5-02-02-010",
+"normal": "Debit",
+"name": "Training Expenses"
+},
+{
+"code": "5-02-03-010",
+"normal": "Debit",
+"name": "Office Supplies Expenses"
+},
+{
+"code": "5-02-03-020",
+"normal": "Debit",
+"name": "Accountable Forms Expenses"
+},
+{
+"code": "5-02-03-030",
+"normal": "Debit",
+"name": "Welfare Goods Expenses"
+},
+{
+"code": "5-02-03-040",
+"normal": "Debit",
+"name": "Drugs and Medicines Expenses"
+},
+{
+"code": "5-02-03-050",
+"normal": "Debit",
+"name": "Fuel, Oil and Lubricant Expenses"
+},
+{
+"code": "5-02-03-990",
+"normal": "Debit",
+"name": "Other Supplies and Materials Expenses"
+},
+{
+"code": "5-02-04-010",
+"normal": "Debit",
+"name": "Water Expenses"
+},
+{
+"code": "5-02-04-020",
+"normal": "Debit",
+"name": "Electricity Expenses"
+},
+{
+"code": "5-02-05-010",
+"normal": "Debit",
+"name": "Postage and Courier Services"
+},
+{
+"code": "5-02-05-020",
+"normal": "Debit",
+"name": "Telephone Expenses"
+},
+{
+"code": "5-02-05-030",
+"normal": "Debit",
+"name": "Internet Subscription Expenses"
+},
+{
+"code": "5-02-05-040",
+"normal": "Debit",
+"name": "Cable, Satellite, Telegraph and Radio Expenses"
+},
+{
+"code": "5-02-06-010",
+"normal": "Debit",
+"name": "Demolition and Relocation Expenses"
+},
+{
+"code": "5-02-06-020",
+"normal": "Debit",
+"name": "Delisting and Dredging Expenses"
+},
+{
+"code": "5-02-07-010",
+"normal": "Debit",
+"name": "Auditing Services"
+},
+{
+"code": "5-02-07-020",
+"normal": "Debit",
+"name": "Consultancy Services"
+},
+{
+"code": "5-02-07-990",
+"normal": "Debit",
+"name": "Other Professional Services"
+},
+{
+"code": "5-02-08-010",
+"normal": "Debit",
+"name": "Environment/Sanitary Services"
+},
+{
+"code": "5-02-08-020",
+"normal": "Debit",
+"name": "Janitorial Services"
+},
+{
+"code": "5-02-08-030",
+"normal": "Debit",
+"name": "Security Services"
+},
+{
+"code": "5-02-08-990",
+"normal": "Debit",
+"name": "Other General Services"
+},
+{
+"code": "5-02-09-010",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Land Improvements"
+},
+{
+"code": "5-02-09-020",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Infrastructure Assets"
+},
+{
+"code": "5-02-09-030",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Buildings and Other Structures"
+},
+{
+"code": "5-02-09-040",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Machinery and Equipment"
+},
+{
+"code": "5-02-09-050",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Transportation Equipment"
+},
+{
+"code": "5-02-09-060",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Furniture and Fixtures"
+},
+{
+"code": "5-02-09-070",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Leased Assets"
+},
+{
+"code": "5-02-09-080",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Leased Assets Improvements"
+},
+{
+"code": "5-02-09-990",
+"normal": "Debit",
+"name": "Repairs and Maintenance -Other Property, Plant and Equipment"
+},
+{
+"code": "5-02-10-010",
+"normal": "Debit",
+"name": "LGU Equity on Other LGU/National/Foreign Funded Projects"
+},
+{
+"code": "5-02-10-020",
+"normal": "Debit",
+"name": "Transfer to TF unutilized current year allocation for LDRRMF"
+},
+{
+"code": "5-02-10-030",
+"normal": "Debit",
+"name": "Transfer of SK allocation to STF"
+},
+{
+"code": "5-02-10-990",
+"normal": "Debit",
+"name": "Subsidies - Others"
+},
+{
+"code": "5-02-11-010",
+"normal": "Debit",
+"name": "Fidelity Bond Premiums"
+},
+{
+"code": "5-02-11-020",
+"normal": "Debit",
+"name": "Insurance Expenses"
+},
+{
+"code": "5-02-12-010",
+"normal": "Debit",
+"name": "Extraordinary and Miscellaneous Expenses"
+},
+{
+"code": "5-02-99-010",
+"normal": "Debit",
+"name": "Advertising Expense"
+},
+{
+"code": "5-02-99-020",
+"normal": "Debit",
+"name": "Representation Expenses"
+},
+{
+"code": "5-02-99-030",
+"normal": "Debit",
+"name": "Transportation and Delivery Expenses"
+},
+{
+"code": "5-02-99-040",
+"normal": "Debit",
+"name": "Rent/Lease Expenses"
+},
+{
+"code": "5-02-99-050",
+"normal": "Debit",
+"name": "Membership Dues and Contributions to Organizations"
+},
+{
+"code": "5-02-99-060",
+"normal": "Debit",
+"name": "Subscription Expenses"
+},
+{
+"code": "5-02-99-070",
+"normal": "Debit",
+"name": "Donations"
+},
+{
+"code": "5-02-99-990",
+"normal": "Debit",
+"name": "Other Maintenance and Operating Expenses"
+},
+{
+"code": "5-03-01-010",
+"normal": "Debit",
+"name": "Interest Expenses"
+},
+{
+"code": "5-03-01-020",
+"normal": "Debit",
+"name": "Bank Charges"
+},
+{
+"code": "5-03-01-990",
+"normal": "Debit",
+"name": "Other Financial Charges"
+},
+{
+"code": "5-04-01-010",
+"normal": "Debit",
+"name": "Depreciation - Land Improvements"
+},
+{
+"code": "5-04-01-020",
+"normal": "Debit",
+"name": "Depreciation - Infrastructure Assets"
+},
+{
+"code": "5-04-01-030",
+"normal": "Debit",
+"name": "Depreciation - Buildings and Other Structures"
+},
+{
+"code": "5-04-01-040",
+"normal": "Debit",
+"name": "Depreciation - Machinery and Equipment"
+},
+{
+"code": "5-04-01-050",
+"normal": "Debit",
+"name": "Depreciation - Transportation Equipment"
+},
+{
+"code": "5-04-01-060",
+"normal": "Debit",
+"name": "Depreciation - Furniture, Fixtures and Books"
+},
+{
+"code": "5-04-01-070",
+"normal": "Debit",
+"name": "Depreciation - Leased Assets"
+},
+{
+"code": "5-04-01-080",
+"normal": "Debit",
+"name": "Depreciation -Lease Assets Improvements"
+},
+{
+"code": "5-04-01-990",
+"normal": "Debit",
+"name": "Depreciation - Other Property,Plant and Equipment"
+},
+{
+"code": "5-04-02-010",
+"normal": "Debit",
+"name": "Impairment Loss - Land"
+},
+{
+"code": "5-04-02-020",
+"normal": "Debit",
+"name": "Impairment Loss - Land Improvements"
+},
+{
+"code": "5-04-02-030",
+"normal": "Debit",
+"name": "Impairment Loss - Infrastructure Assets"
+},
+{
+"code": "5-04-02-040",
+"normal": "Debit",
+"name": "Impairment Loss - Buildings and Other Structures"
+},
+{
+"code": "5-04-02-050",
+"normal": "Debit",
+"name": "Impairment Loss - Machinery and Equipment"
+},
+{
+"code": "5-04-02-060",
+"normal": "Debit",
+"name": "Impairment Loss - Transportation Equipment"
+},
+{
+"code": "5-04-02-070",
+"normal": "Debit",
+"name": "Impairment Loss - Furniture, Fixtures and Books"
+},
+{
+"code": "5-04-02-080",
+"normal": "Debit",
+"name": "Impairment Loss - Leased Assets"
+},
+{
+"code": "5-04-02-090",
+"normal": "Debit",
+"name": "Impairment Loss - Lease Assets Improvements"
+}
+]

@@ -1,0 +1,374 @@
+rules_version = '2';
+
+// =============================================================================
+// BFMS — Cloud Firestore Security Rules
+// Strategy: docs/architecture/03-security.md §6
+//
+//  * Deny by default.
+//  * Identity comes from the custom claim  token.a = { <BARANGAY|ALL>: [claimCodes] }.
+//  * Barangay isolation: every barangay-owned document carries barangayId; a user may touch it only
+//    when token.a has that barangay or 'ALL'.
+//  * Clients may create/edit SOURCE documents only in DRAFT/RETURNED, only in their barangay, and never
+//    server-owned fields. All status transitions, numbering, posting and totals go through Functions.
+//  * Accounting core, audit, sequences, balances, reports: client writes are always denied.
+//
+// Claim codes: SA super_admin · MA municipal_accountant · AR accounting_reviewer · AS accounting_staff
+//              PB punong_barangay · BT barangay_treasurer · AC appropriations_chair · PO property_officer
+//              BE barangay_encoder · AU auditor
+// =============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function a() { return request.auth.token.get('a', {}); }
+    // ALL-scope check first: it does not depend on the document, so list queries by
+    // Municipal Accounting are provable without a barangay filter.
+    function hasAnyRole(bid, roles) {
+      return signedIn() && (a().get('ALL', []).hasAny(roles) || a().get(bid, []).hasAny(roles));
+    }
+    function hasAllScopeRole(roles) { return signedIn() && a().get('ALL', []).hasAny(roles); }
+    function isBarangayId(bid) {
+      return bid in ['AGBOY', 'BANGA', 'CABIA-AN', 'CANINGAY', 'EAST', 'GATUSLAO', 'HABA', 'PAYAUAN', 'WEST'];
+    }
+    function hasAnyAssignment() { return signedIn() && a().size() > 0; }
+
+    // Everyone with a transactional role (NOT super admin, NOT auditor).
+    function fullReaderRoles() { return ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE']; }
+    function auditorVisibleStatuses() {
+      return ['SUBMITTED', 'FOR_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACCEPTED', 'POSTED', 'CLOSED', 'CERTIFIED', 'ACTIVE', 'FINAL', 'REVERSED'];
+    }
+
+    // Read rule for barangay-owned documents that have a `status`.
+    function canReadScoped(data) {
+      return hasAnyRole(data.barangayId, fullReaderRoles())
+        || (hasAnyRole(data.barangayId, ['AU']) && data.get('status', '') in auditorVisibleStatuses());
+    }
+    // Read rule for barangay-owned documents without workflow status (balances, masters).
+    function canReadScopedNoStatus(data) {
+      return hasAnyRole(data.barangayId, fullReaderRoles().concat(['AU']));
+    }
+
+    // Fields only Cloud Functions may set.
+    function serverOwnedKeys() {
+      return ['status', 'submittedBy', 'submittedAt', 'reviewedBy', 'reviewedAt', 'approvedBy', 'approvedAt',
+              'acceptedBy', 'acceptedAt', 'postedBy', 'postedAt', 'voidedBy', 'voidedAt', 'voidReason',
+              'returnInfo', 'returnHistory', 'revisionNumber', 'createdAt', 'createdBy',
+              'jevId', 'jevNumber', 'dvNumber', 'rcdNumber', 'obligationNumber', 'liquidationNumber',
+              'payrollNumber', 'pcvNumber', 'certifiedBy', 'certifiedAt',
+              'totalAppropriation', 'obligations', 'availableBalance', 'supplementalAppropriation',
+              'outstandingBalance', 'balanceRemaining', 'totalSupported', 'netAmount',
+              'accumulatedDepreciation', 'netBookValue', 'monthlyActual', 'yearToDateActual',
+              'cashAdvanceId', 'rcdId', 'validatedAmount'];
+    }
+    function canCreateSource(roles) {
+      let d = request.resource.data;
+      return signedIn()
+        && isBarangayId(d.barangayId)
+        && hasAnyRole(d.barangayId, roles)
+        && d.fiscalYear is int
+        && d.status == 'DRAFT'
+        && d.createdBy == uid()
+        && d.createdAt == request.time
+        && d.updatedBy == uid()
+        && d.get('revisionNumber', 0) == 0
+        && !d.keys().hasAny(serverOwnedKeys().removeAll(['status', 'createdBy', 'createdAt', 'revisionNumber']));
+    }
+
+    function canUpdateSource(roles) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return hasAnyRole(before.barangayId, roles)
+        && before.status in ['DRAFT', 'RETURNED']
+        && after.barangayId == before.barangayId
+        && after.fiscalYear == before.fiscalYear
+        && after.updatedBy == uid()
+        && after.updatedAt == request.time
+        && !after.diff(before).affectedKeys().hasAny(serverOwnedKeys());
+    }
+
+    // ------------------------------------------------ identity & tenancy
+    match /users/{userId} {
+      allow read: if signedIn() && (userId == uid() || hasAllScopeRole(['SA', 'MA']));
+      allow update: if signedIn() && userId == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'preferences']);
+      allow create, delete: if false;
+    }
+
+    match /userAssignments/{id} {
+      allow read: if signedIn() && (resource.data.uid == uid() || hasAllScopeRole(['SA', 'MA']));
+      allow write: if false;
+    }
+
+    match /roles/{id} {
+      allow read: if hasAnyAssignment();
+      allow write: if false;
+    }
+
+    match /barangays/{bid} {
+      allow read: if hasAnyAssignment() && (hasAnyRole(bid, fullReaderRoles().concat(['AU'])) || hasAllScopeRole(['SA']));
+      allow write: if false;
+    }
+
+    match /signatories/{id} {
+      allow read: if hasAnyAssignment();
+      allow write: if false;
+    }
+
+    match /offices/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+
+    // ------------------------------------------------ calendar & configuration
+    match /fiscalYears/{fy} {
+      allow read: if hasAnyAssignment();
+      allow write: if false;
+    }
+    match /barangayFiscalYears/{id} {
+      allow read: if canReadScopedNoStatus(resource.data) || hasAllScopeRole(['SA']);
+      allow write: if false;
+    }
+    match /accountingPeriods/{id} {
+      allow read: if canReadScopedNoStatus(resource.data) || hasAllScopeRole(['SA']);
+      allow write: if false;
+    }
+
+    // Reference catalogs: readable by any assigned user; maintained only via Functions.
+    match /chartOfAccounts/{id}         { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /funds/{id}                   { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /fpp/{id}                     { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /reportDefinitions/{id}       { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /reportMappings/{id}          { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /complianceRequirements/{id}  { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /transactionTypes/{id}        { allow read: if hasAnyAssignment(); allow write: if false; }
+    match /systemSettings/{id}          { allow read: if hasAnyAssignment(); allow write: if false; }
+
+    match /subsidiaryAccounts/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+    match /bankAccounts/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+
+    // ------------------------------------------------ SOURCE DOCUMENTS (client DRAFT writes)
+    // Budget
+    match /appropriations/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['AC', 'BE', 'AS', 'MA']);
+      allow update: if canUpdateSource(['AC', 'BE', 'AS', 'MA']);
+      allow delete: if false;
+    }
+    match /appropriationAdjustments/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['AC', 'BE']);
+      allow update: if canUpdateSource(['AC', 'BE']);
+      allow delete: if false;
+    }
+    match /obligations/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'AC', 'BE']);
+      allow update: if canUpdateSource(['BT', 'AC', 'BE']);
+      allow delete: if false;
+    }
+    match /estimatedIncome/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false; // maintained by budget functions
+    }
+
+    // Treasury
+    match /collections/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+    }
+    match /deposits/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+    }
+    match /rcdReports/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT']);
+      allow update: if canUpdateSource(['BT']);
+      allow delete: if false;
+    }
+    match /rcrReports/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT']);
+      allow update: if canUpdateSource(['BT']);
+      allow delete: if false;
+    }
+    match /disbursementVouchers/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+    }
+    match /payrolls/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+      match /entries/{entryId} {
+        allow read: if canReadScoped(get(/databases/$(database)/documents/payrolls/$(id)).data);
+        allow write: if false; // written with the header by savePayroll()
+      }
+    }
+    match /liquidations/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+      match /items/{itemId} {
+        allow read: if canReadScoped(get(/databases/$(database)/documents/liquidations/$(id)).data);
+        allow write: if false; // written with the header by saveLiquidation()
+      }
+    }
+    match /pettyCashTransactions/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['BT', 'BE']);
+      allow update: if canUpdateSource(['BT', 'BE']);
+      allow delete: if false;
+    }
+    match /bankStatements/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow create: if signedIn() && isBarangayId(request.resource.data.barangayId)
+        && hasAnyRole(request.resource.data.barangayId, ['BT', 'AS', 'AR', 'MA'])
+        && request.resource.data.createdBy == uid();
+      allow update, delete: if false;
+      match /lines/{lineId} {
+        allow read: if canReadScopedNoStatus(get(/databases/$(database)/documents/bankStatements/$(id)).data);
+        allow write: if false;
+      }
+    }
+
+    // Property
+    match /ppe/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['PO', 'AS']);
+      allow update: if canUpdateSource(['PO', 'AS']);
+      allow delete: if false;
+    }
+    match /inventoryItems/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+    match /inventoryTransactions/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+    match /propertyDocuments/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['PO', 'AS']);
+      allow update: if canUpdateSource(['PO', 'AS']);
+      allow delete: if false;
+    }
+    match /biologicalAssets/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow create: if canCreateSource(['PO', 'AS']);
+      allow update: if canUpdateSource(['PO', 'AS']);
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------ SERVER-ONLY (read scoped, never client-written)
+    match /checks/{id}                 { allow read: if canReadScoped(resource.data);        allow write: if false; }
+    match /adas/{id}                   { allow read: if canReadScoped(resource.data);        allow write: if false; }
+    match /accountableForms/{id}       { allow read: if canReadScoped(resource.data);        allow write: if false; }
+    match /cashAdvances/{id}           { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /pettyCashFunds/{id}         { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /specialTrustFunds/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /raoEntries/{id}             { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /bankReconciliations/{id} {
+      allow read: if canReadScoped(resource.data);
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if canReadScoped(get(/databases/$(database)/documents/bankReconciliations/$(id)).data);
+        allow write: if false;
+      }
+    }
+    match /bankMemos/{id}              { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /ppeDepreciation/{id}        { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+
+    // Accounting core
+    match /journalEntries/{jevId} {
+      allow read: if hasAnyRole(resource.data.barangayId, fullReaderRoles())
+        || (hasAnyRole(resource.data.barangayId, ['AU']) && resource.data.status in ['POSTED', 'REVERSED']);
+      allow write: if false;
+    }
+    // Journal lines are read with collection-group queries for GL/SL.
+    // Queries MUST filter on barangayId (and auditors on posted == true) or they are rejected.
+    match /{path=**}/lines/{lineId} {
+      allow read: if hasAnyRole(resource.data.barangayId, fullReaderRoles())
+        || (hasAnyRole(resource.data.barangayId, ['AU']) && resource.data.posted == true);
+      allow write: if false;
+    }
+    match /accountBalances/{id}        { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /financialSummaries/{id}     { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /closingRuns/{id}            { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /numberSequences/{id}        { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /uniqueKeys/{id}             { allow read, write: if false; }
+
+    // Reporting & compliance
+    match /generatedReports/{id} {
+      allow read: if hasAnyRole(resource.data.barangayId, fullReaderRoles())
+        || (hasAnyRole(resource.data.barangayId, ['AU']) && resource.data.status in ['ACCEPTED', 'FINAL']);
+      allow write: if false;
+    }
+    match /reportSubmissions/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /nfsNarratives/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+      match /versions/{v} { allow read: if canReadScopedNoStatus(get(/databases/$(database)/documents/nfsNarratives/$(id)).data); allow write: if false; }
+    }
+
+    // Documents
+    match /attachments/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow create: if signedIn()
+        && isBarangayId(request.resource.data.barangayId)
+        && hasAnyRole(request.resource.data.barangayId, ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE'])
+        && request.resource.data.uploadedBy == uid()
+        && request.resource.data.reviewStatus == 'INCOMPLETE'
+        && request.resource.data.version is int
+        && request.resource.data.storagePath.matches('^barangays/' + request.resource.data.barangayId + '/[0-9]{4}/.+');
+      allow update, delete: if false;
+    }
+
+    // Notifications — recipient may only mark as read.
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.recipientUid == uid();
+      allow update: if signedIn() && resource.data.recipientUid == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+      allow create, delete: if false;
+    }
+
+    // Workflow history & audit — append-only via Functions.
+    match /workflowHistory/{id} {
+      allow read: if canReadScopedNoStatus(resource.data);
+      allow write: if false;
+    }
+    match /auditLogs/{id} {
+      allow read: if signedIn() && (
+        hasAllScopeRole(['SA', 'MA', 'AR', 'AU'])
+        || (isBarangayId(resource.data.barangayId) && hasAnyRole(resource.data.barangayId, ['AU'])));
+      allow write: if false;
+    }
+    match /auditChains/{id}            { allow read, write: if false; }
+
+    // Legacy migration staging — accounting only.
+    match /importBatches/{id} {
+      allow read: if hasAnyRole(resource.data.barangayId, ['MA', 'AR', 'AS']);
+      allow write: if false;
+      match /records/{recordId} {
+        allow read: if hasAnyRole(get(/databases/$(database)/documents/importBatches/$(id)).data.barangayId, ['MA', 'AR', 'AS']);
+        allow write: if false;
+      }
+    }
+  }
+}
