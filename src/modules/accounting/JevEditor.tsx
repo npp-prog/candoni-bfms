@@ -1,4 +1,5 @@
 import {
+  JEV_SOURCE_LABELS,
   computeJournalTotals,
   formatPesos,
   manilaToday,
@@ -9,6 +10,7 @@ import {
 } from '@bfms/shared';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
+import { PrintLink } from '../../components/source';
 import { ConfirmDialog, Icon, Modal, Spinner, StatusChip } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBarangay } from '../../contexts/BarangayContext';
@@ -16,6 +18,16 @@ import { useToast } from '../../contexts/ToastContext';
 import { useChartOfAccounts } from '../../hooks/useChartOfAccounts';
 import { db } from '../../services/firebase/app';
 import { api, errorMessage } from '../../services/functions/api';
+
+/** Entry types a preparer may choose (REVERSING/CLOSING are created by the system). */
+const ENTRY_TYPES = [
+  { value: 'REGULAR', label: 'Regular' },
+  { value: 'ADJUSTING', label: 'Adjusting' },
+  { value: 'CORRECTING', label: 'Correcting' },
+  { value: 'OPENING', label: 'Opening balances (period 00)' },
+] as const;
+type ManualEntryType = (typeof ENTRY_TYPES)[number]['value'];
+const isManualType = (t: string): t is ManualEntryType => ENTRY_TYPES.some((x) => x.value === t);
 
 interface Row { accountCode: string; subsidiaryId: string; debit: string; credit: string; lineDescription: string }
 const blank = (): Row => ({ accountCode: '', subsidiaryId: '', debit: '', credit: '', lineDescription: '' });
@@ -39,7 +51,7 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
   const coa = useChartOfAccounts();
   const [loading, setLoading] = useState(!!jevId);
   const [jev, setJev] = useState<(JournalEntryDoc & { id: string }) | null>(null);
-  const [h, setH] = useState({ jevDate: manilaToday(), journal: 'GJ' as 'JCT' | 'GJ', particulars: '', primaryReference: '', secondaryReference: '' });
+  const [h, setH] = useState({ jevDate: manilaToday(), journal: 'GJ' as 'JCT' | 'GJ', entryType: 'REGULAR' as ManualEntryType, particulars: '', primaryReference: '', secondaryReference: '' });
   const [rows, setRows] = useState<Row[]>([blank(), blank()]);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'post' | 'return' | 'reverse'>(null);
@@ -61,7 +73,7 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
       if (!s.exists()) return;
       const j = { id: s.id, ...(s.data() as JournalEntryDoc) };
       setJev(j);
-      setH({ jevDate: j.jevDate, journal: j.journal, particulars: j.particulars, primaryReference: j.primaryReference ?? '', secondaryReference: j.secondaryReference ?? '' });
+      setH({ jevDate: j.jevDate, journal: j.journal, entryType: isManualType(j.entryType) ? j.entryType : 'REGULAR', particulars: j.particulars, primaryReference: j.primaryReference ?? '', secondaryReference: j.secondaryReference ?? '' });
       const ls = await getDocs(query(collection(db, 'journalEntries', jevId, 'lines'), orderBy('lineNo')));
       setRows(ls.docs.map((d) => {
         const l = d.data() as JournalLineDoc;
@@ -124,6 +136,8 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
           jevDate: h.jevDate,
           fundId: 'GF',
           journal: h.journal,
+          // System entry types (REVERSING/CLOSING) are never re-sent; the server defaults to REGULAR.
+          ...(jev && !isManualType(jev.entryType) ? {} : { entryType: h.entryType }),
           particulars: h.particulars,
           primaryReference: h.primaryReference || null,
           secondaryReference: h.secondaryReference || null,
@@ -157,13 +171,33 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
     <Modal open wide title={jev ? `JEV ${jev.jevNumber ?? '(number assigned on posting)'}` : 'New Journal Entry Voucher'} onClose={onClose} footer={footer}>
       {loading || !coa ? <Spinner /> : (
         <>
-          {jev && <div className="mb-3 flex items-center gap-2 text-sm"><StatusChip status={jev.status} />{jev.returnInfo && jev.status === 'RETURNED' && <span className="text-orange-800">Returned: {jev.returnInfo.reasonForReturn}</span>}</div>}
-          <div className="grid gap-3 sm:grid-cols-4">
+          {jev && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              <StatusChip status={jev.status} />
+              {jev.entryType !== 'REGULAR' && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">{jev.entryType.toLowerCase()}</span>}
+              {jev.sourceModule !== 'MANUAL' && (
+                <span className="text-slate-700">
+                  Generated from <strong>{JEV_SOURCE_LABELS[jev.sourceModule] ?? jev.sourceModule}</strong>
+                  {(jev.secondaryReference || jev.primaryReference) && <> {jev.secondaryReference ?? jev.primaryReference}</>}
+                </span>
+              )}
+              {jev.returnInfo && jev.status === 'RETURNED' && <span className="text-orange-800">Returned: {jev.returnInfo.reasonForReturn}</span>}
+              <span className="ml-auto"><PrintLink code="JEV" documentId={jev.id} fiscalYear={jev.fiscalYear} label="Print JEV" className="btn-ghost btn-sm" /></span>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div><label className="label required" htmlFor="jd">JEV date</label><input id="jd" type="date" className="input" disabled={!editable} value={h.jevDate} onChange={(e) => setH({ ...h, jevDate: e.target.value })} /></div>
             <div><label className="label" htmlFor="jb">Book</label><select id="jb" className="input" disabled={!editable} value={h.journal} onChange={(e) => setH({ ...h, journal: e.target.value as 'JCT' | 'GJ' })}><option value="GJ">General Journal</option><option value="JCT">Journal of Cash Transactions</option></select></div>
+            <div>
+              <label className="label" htmlFor="et">Entry type</label>
+              <select id="et" className="input" disabled={!editable || (!!jev && !isManualType(jev.entryType))} value={h.entryType} onChange={(e) => setH({ ...h, entryType: e.target.value as ManualEntryType })} aria-describedby={h.entryType === 'OPENING' ? 'et-hint' : undefined}>
+                {ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {h.entryType === 'OPENING' && <p id="et-hint" className="field-hint">Posts to period 00 of the date&apos;s fiscal year (beginning balances).</p>}
+            </div>
             <div><label className="label" htmlFor="pr">Primary ref (check/OR)</label><input id="pr" className="input" disabled={!editable} value={h.primaryReference} onChange={(e) => setH({ ...h, primaryReference: e.target.value })} /></div>
             <div><label className="label" htmlFor="sr">Secondary ref (DV/RCD)</label><input id="sr" className="input" disabled={!editable} value={h.secondaryReference} onChange={(e) => setH({ ...h, secondaryReference: e.target.value })} /></div>
-            <div className="sm:col-span-4"><label className="label required" htmlFor="pt">Particulars</label><input id="pt" className="input" required minLength={3} disabled={!editable} value={h.particulars} onChange={(e) => setH({ ...h, particulars: e.target.value })} aria-describedby="pt-hint" /><p id="pt-hint" className="field-hint">Describe the transaction; at least 3 characters.</p></div>
+            <div className="sm:col-span-2 lg:col-span-5"><label className="label required" htmlFor="pt">Particulars</label><input id="pt" className="input" required minLength={3} disabled={!editable} value={h.particulars} onChange={(e) => setH({ ...h, particulars: e.target.value })} aria-describedby="pt-hint" /><p id="pt-hint" className="field-hint">Describe the transaction; at least 3 characters.</p></div>
           </div>
           <datalist id="coa-codes">{[...coa.values()].filter((a) => a.active).map((a) => <option key={a.accountCode} value={a.accountCode}>{a.accountName}</option>)}</datalist>
           <div className="mt-4 overflow-x-auto">
