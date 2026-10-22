@@ -10,6 +10,7 @@ let seq = 0;
 /** Toasts replace browser alert() for ordinary messages. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
   const notify = useCallback((message: string, tone: Tone = 'info') => {
     const id = ++seq;
     setToasts((t) => [...t, { id, tone, message }]);
@@ -25,8 +26,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((t) => (
-          <div key={t.id} role={t.tone === 'error' ? 'alert' : 'status'} className={`pointer-events-auto rounded-md border px-4 py-3 text-sm shadow ${toneCls[t.tone]}`}>
-            {t.message}
+          <div key={t.id} role={t.tone === 'error' ? 'alert' : 'status'} className={`pointer-events-auto flex items-start gap-2 rounded-md border py-3 pl-4 pr-2 text-sm shadow-md ${toneCls[t.tone]}`}>
+            <span className="flex-1">{t.message}</span>
+            <button type="button" onClick={() => dismiss(t.id)} className="-my-1 rounded p-1 opacity-70 hover:opacity-100" aria-label="Dismiss notification">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
           </div>
         ))}
       </div>

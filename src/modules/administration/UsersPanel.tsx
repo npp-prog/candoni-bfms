@@ -11,7 +11,7 @@ import {
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { EmptyState, Modal, Pager, Spinner, StatusChip } from '../../components/ui';
+import { EmptyState, Field, Modal, Pager, Spinner, StatusChip, TableSkeleton } from '../../components/ui';
 import { useToast } from '../../contexts/ToastContext';
 import { usePaginatedQuery } from '../../hooks/usePaginatedQuery';
 import { auth, db } from '../../services/firebase/app';
@@ -26,24 +26,24 @@ export function UsersPanel() {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <h2 className="font-serif font-bold text-navy-800">Users</h2>
-        <button className="btn-primary" onClick={() => setCreating(true)}>New user</button>
+      <div className="card-header">
+        <h2 className="card-title">Users</h2>
+        <button type="button" className="btn-primary" onClick={() => setCreating(true)}>New user</button>
       </div>
-      {page.loading && <Spinner />}
+      {page.loading && <TableSkeleton label="Loading users…" />}
       {!page.loading && page.rows.length === 0 && <div className="p-4"><EmptyState title="No users yet" /></div>}
       {page.rows.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="table-base">
-            <thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Status</th><th /></tr></thead>
+          <table className="table-base table-hover">
+            <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Position</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {page.rows.map((u) => (
                 <tr key={u.id}>
                   <td className="font-medium">{u.displayName}</td>
                   <td>{u.email}</td>
                   <td>{u.position}</td>
-                  <td><StatusChip status={u.active ? 'OPEN' : 'CLOSED'} /></td>
-                  <td className="text-right"><button className="btn-ghost px-2 py-1" onClick={() => setAssigning(u)}>Roles…</button></td>
+                  <td>{u.active ? <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">Active</span> : <StatusChip status="DISABLED" />}</td>
+                  <td className="text-right"><button type="button" className="btn-ghost btn-sm" onClick={() => setAssigning(u)} aria-label={`Manage roles for ${u.displayName}`}>Roles…</button></td>
                 </tr>
               ))}
             </tbody>
@@ -61,12 +61,22 @@ function CreateUserModal({ open, onClose, onCreated }: { open: boolean; onClose(
   const { notify } = useToast();
   const [f, setF] = useState({ email: '', displayName: '', position: '' });
   const [busy, setBusy] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const errors = {
+    displayName: f.displayName.trim().length < 3 ? 'Enter the full name (at least 3 characters).' : null,
+    email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()) ? 'Enter a valid email address.' : null,
+    position: null,
+  };
+  const valid = !errors.displayName && !errors.email;
   async function save() {
+    setTouched(true);
+    if (!valid) return;
     setBusy(true);
     try {
       await api.createUserAccount({ ...f, defaultBarangayId: null });
       await sendPasswordResetEmail(auth, f.email);
       setF({ email: '', displayName: '', position: '' });
+      setTouched(false);
       onCreated();
     } catch (e) {
       notify(errorMessage(e), 'error');
@@ -75,16 +85,20 @@ function CreateUserModal({ open, onClose, onCreated }: { open: boolean; onClose(
     }
   }
   return (
-    <Modal open={open} title="New user" onClose={onClose} footer={<><button className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy || !f.email || f.displayName.length < 3} onClick={() => void save()}>{busy ? 'Creating…' : 'Create'}</button></>}>
-      <div className="space-y-3">
-        {(['displayName', 'email', 'position'] as const).map((k) => (
-          <div key={k}>
-            <label className="label" htmlFor={`u-${k}`}>{k === 'displayName' ? 'Full name' : k}</label>
-            <input id={`u-${k}`} className="input" type={k === 'email' ? 'email' : 'text'} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-          </div>
-        ))}
-        <p className="text-xs text-slate-500">No password is set here. The user receives an email to create their own password.</p>
-      </div>
+    <Modal open={open} title="New user" onClose={onClose} footer={<><button className="btn-secondary" onClick={onClose}>Cancel</button><button type="button" className="btn-primary" disabled={busy || (touched && !valid)} onClick={() => void save()}>{busy ? 'Creating…' : 'Create user'}</button></>}>
+      <form className="space-y-3" noValidate onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <Field label="Full name" required error={touched ? errors.displayName : null}>
+          {(p) => <input {...p} className="input" autoComplete="off" value={f.displayName} onChange={(e) => setF({ ...f, displayName: e.target.value })} onBlur={() => f.displayName && setTouched(true)} />}
+        </Field>
+        <Field label="Email" required error={touched ? errors.email : null} hint="The password-setup link is sent here.">
+          {(p) => <input {...p} type="email" className="input" autoComplete="off" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} onBlur={() => f.email && setTouched(true)} />}
+        </Field>
+        <Field label="Position" hint="e.g. Barangay Treasurer">
+          {(p) => <input {...p} className="input" value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} />}
+        </Field>
+        <p className="text-xs text-slate-600">No password is set here. The user receives an email to create their own password.</p>
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }
@@ -117,9 +131,9 @@ function AssignRolesModal({ user, onClose }: { user: UserDoc & { id: string }; o
     }
   }
   return (
-    <Modal open title={`Roles — ${user.displayName}`} onClose={onClose} footer={<><button className="btn-secondary" onClick={onClose}>Close</button><button className="btn-primary" disabled={busy || roles.length === 0} onClick={() => void save()}>{busy ? 'Saving…' : 'Save assignment'}</button></>}>
+    <Modal open title={`Roles — ${user.displayName}`} onClose={onClose} footer={<><button className="btn-secondary" onClick={onClose}>Close</button><button type="button" className="btn-primary" disabled={busy || roles.length === 0} title={roles.length === 0 ? 'Select at least one role' : undefined} onClick={() => void save()}>{busy ? 'Saving…' : 'Save assignment'}</button></>}>
       <h3 className="label">Current assignments</h3>
-      {!current ? <Spinner /> : current.length === 0 ? <p className="mb-4 text-sm text-slate-500">None.</p> : (
+      {!current ? <Spinner /> : current.length === 0 ? <p className="mb-4 text-sm text-slate-600">None.</p> : (
         <ul className="mb-4 space-y-1 text-sm">
           {current.map((a) => <li key={a.id}><strong>{a.barangayId}</strong>: {a.roles.map((r) => ROLES[r].label).join(', ')}</li>)}
         </ul>
@@ -141,14 +155,14 @@ function AssignRolesModal({ user, onClose }: { user: UserDoc & { id: string }; o
         <legend className="label">Roles at {scope}</legend>
         <div className="grid gap-1 sm:grid-cols-2">
           {allowed.map((r) => (
-            <label key={r} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={roles.includes(r)} onChange={(e) => setRoles(e.target.checked ? [...roles, r] : roles.filter((x) => x !== r))} />
+            <label key={r} className="flex min-h-[2.25rem] cursor-pointer items-center gap-2 rounded px-1 text-sm hover:bg-slate-50">
+              <input className="h-4 w-4 accent-navy-700" type="checkbox" checked={roles.includes(r)} onChange={(e) => setRoles(e.target.checked ? [...roles, r] : roles.filter((x) => x !== r))} />
               {ROLES[r].label}
             </label>
           ))}
         </div>
       </fieldset>
-      <p className="mt-3 text-xs text-slate-500">Saving replaces this user’s roles at the selected scope. Only a Super Admin can grant the Super Admin, Municipal Accountant or Accounting Reviewer roles. The server enforces this.</p>
+      <p className="mt-3 text-xs text-slate-600">Saving replaces this user’s roles at the selected scope. Only a Super Admin can grant the Super Admin, Municipal Accountant or Accounting Reviewer roles. The server enforces this.</p>
     </Modal>
   );
 }

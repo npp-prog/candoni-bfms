@@ -1,6 +1,6 @@
 import { COA_REVIEW_NOTES } from '@bfms/shared';
 import { useState } from 'react';
-import { PageHeader } from '../../components/ui';
+import { PageHeader, Tabs } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api, errorMessage } from '../../services/functions/api';
@@ -13,20 +13,17 @@ const TABS = ['Users & roles', 'Fiscal years & periods', 'Chart of Accounts', 'S
 export function AdminPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Fiscal years & periods');
   const { can } = useAuth();
+  const visible = TABS.filter((t) => t !== 'Users & roles' || can('admin.users.manage', 'ALL'));
   return (
     <>
       <PageHeader title="Administration" breadcrumbs={['BFMS', 'Administration']} />
-      <div role="tablist" className="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
-        {TABS.filter((t) => t !== 'Users & roles' || can('admin.users.manage', 'ALL')).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`-mb-px border-b-2 px-4 py-2 text-sm ${tab === t ? 'border-gold-500 font-semibold text-navy-800' : 'border-transparent text-slate-600 hover:text-navy-700'}`}>
-            {t}
-          </button>
-        ))}
+      <Tabs<(typeof TABS)[number]> tabs={visible} value={tab} onChange={setTab} label="Administration sections" idPrefix="admin" />
+      <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${visible.indexOf(tab)}`}>
+        {tab === 'Users & roles' && <UsersPanel />}
+        {tab === 'Fiscal years & periods' && <PeriodsPanel />}
+        {tab === 'Chart of Accounts' && <CoaPanel />}
+        {tab === 'System' && <SystemPanel />}
       </div>
-      {tab === 'Users & roles' && <UsersPanel />}
-      {tab === 'Fiscal years & periods' && <PeriodsPanel />}
-      {tab === 'Chart of Accounts' && <CoaPanel />}
-      {tab === 'System' && <SystemPanel />}
     </>
   );
 }
@@ -37,7 +34,7 @@ function SystemPanel() {
   const [result, setResult] = useState<Record<string, number> | null>(null);
   return (
     <div className="card p-4">
-      <h2 className="font-serif font-bold text-navy-800">Reference data</h2>
+      <h2 className="card-title">Reference data</h2>
       <p className="mt-1 text-sm text-slate-600">
         Seeds the nine barangays, roles, the 274-account Chart of Accounts, the report catalog (50 prescribed forms and the supplementary schedules), compliance requirements and settings. It only creates documents that are missing and never overwrites the Chart of Accounts.
       </p>

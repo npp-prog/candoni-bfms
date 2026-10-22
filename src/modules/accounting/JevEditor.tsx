@@ -8,8 +8,8 @@ import {
   type JournalLineDoc,
 } from '@bfms/shared';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import { ConfirmDialog, Modal, Spinner, StatusChip } from '../../components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { ConfirmDialog, Icon, Modal, Spinner, StatusChip } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBarangay } from '../../contexts/BarangayContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -44,6 +44,15 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'post' | 'return' | 'reverse'>(null);
   const [reason, setReason] = useState('');
+  const focusLine = useRef<number | null>(null);
+  const tableRef = useRef<HTMLTableSectionElement>(null);
+
+  // After "Add line", move focus to the new line's account field.
+  useEffect(() => {
+    if (focusLine.current === null) return;
+    tableRef.current?.querySelector<HTMLInputElement>(`#jev-acct-${focusLine.current}`)?.focus();
+    focusLine.current = null;
+  }, [rows.length]);
 
   useEffect(() => {
     if (!jevId) return;
@@ -67,6 +76,30 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
   const parsed = rows.map((r) => ({ debit: safeParse(r.debit || '0'), credit: safeParse(r.credit || '0') }));
   const invalid = parsed.some((p) => p.debit === null || p.credit === null);
   const totals = invalid ? null : computeJournalTotals(parsed as Array<{ debit: Centavos; credit: Centavos }>);
+
+  // Per-line problems, shown inline and summarised above the footer. The server re-validates everything.
+  const lineErrors = rows.map((r, i) => {
+    const acct = coa?.get(r.accountCode.trim());
+    const d = parsed[i]!.debit;
+    const c = parsed[i]!.credit;
+    return {
+      account: r.accountCode.trim() && coa && !acct ? 'Unknown account code' : acct && !acct.active ? 'Account is inactive' : null,
+      subsidiary: acct?.requiresSubsidiaryLedger && !r.subsidiaryId.trim() ? 'Required for this account' : null,
+      debit: d === null ? 'Enter an amount like 1,234.56' : d < 0 ? 'Cannot be negative' : null,
+      credit: c === null ? 'Enter an amount like 1,234.56' : c < 0 ? 'Cannot be negative' : d !== null && d > 0 && c > 0 ? 'Use either debit or credit, not both' : null,
+      // Mirrors validateJournalBalance: every line needs an account and exactly one non-zero side.
+      missing: !r.accountCode.trim() ? 'account code is required' : d !== null && c !== null && d === 0 && c === 0 ? 'enter a debit or a credit' : null,
+    };
+  });
+  const problems: string[] = [];
+  const particularsError = h.particulars.trim().length < 3 ? 'Enter at least 3 characters.' : null;
+  if (particularsError) problems.push('Particulars: enter at least 3 characters.');
+  lineErrors.forEach((e, i) => {
+    const msgs = [e.missing, e.account, e.subsidiary && `subsidiary ${e.subsidiary.toLowerCase()}`, e.debit && `debit: ${e.debit.toLowerCase()}`, e.credit && `credit: ${e.credit.toLowerCase()}`].filter(Boolean);
+    if (msgs.length) problems.push(`Line ${i + 1}: ${msgs.join('; ')}.`);
+  });
+  if (totals && !totals.balanced) problems.push(`Debits and credits differ by ${formatPesos(totals.difference)}.`);
+  if (totals && totals.balanced && totals.totalDebit === 0) problems.push('Enter at least one amount.');
 
   async function run<T>(fn: () => Promise<T>, ok: string) {
     setBusy(true);
@@ -109,9 +142,10 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
 
   const footer = (
     <>
+      {editable && problems.length > 0 && jev && can('jev.prepare', barangayId) && <span className="mr-auto self-center text-xs text-slate-600">Fix the items above to submit.</span>}
       <button className="btn-secondary" onClick={onClose}>Close</button>
-      {editable && can('jev.prepare', barangayId) && <button className="btn-secondary" disabled={busy || invalid} onClick={() => void save()}>Save draft</button>}
-      {jev && editable && can('jev.prepare', barangayId) && <button className="btn-primary" disabled={busy || !totals?.balanced} onClick={() => void run(() => api.submitJournalEntry({ jevId: jev.id }), 'Submitted for review.')}>Submit for review</button>}
+      {editable && can('jev.prepare', barangayId) && <button className="btn-secondary" disabled={busy || invalid || !!particularsError} title={particularsError ? 'Particulars need at least 3 characters' : undefined} onClick={() => void save()}>Save draft</button>}
+      {jev && editable && can('jev.prepare', barangayId) && <button className="btn-primary" disabled={busy || problems.length > 0} onClick={() => void run(() => api.submitJournalEntry({ jevId: jev.id }), 'Submitted for review.')}>Submit for review</button>}
       {jev?.status === 'FOR_REVIEW' && can('jev.review', barangayId) && <button className="btn-secondary" onClick={() => setConfirm('return')}>Return</button>}
       {jev?.status === 'FOR_REVIEW' && can('jev.approve', barangayId) && <button className="btn-primary" disabled={busy || jev.createdBy === user?.uid} title={jev.createdBy === user?.uid ? 'The preparer cannot approve their own entry' : ''} onClick={() => void run(() => api.approveJournalEntry({ jevId: jev.id }), 'Approved.')}>Approve</button>}
       {jev?.status === 'APPROVED' && can('jev.post', barangayId) && <button className="btn-primary" disabled={busy} onClick={() => setConfirm('post')}>Post</button>}
@@ -125,45 +159,75 @@ export function JevEditor({ jevId, onClose }: { jevId: string | null; onClose():
         <>
           {jev && <div className="mb-3 flex items-center gap-2 text-sm"><StatusChip status={jev.status} />{jev.returnInfo && jev.status === 'RETURNED' && <span className="text-orange-800">Returned: {jev.returnInfo.reasonForReturn}</span>}</div>}
           <div className="grid gap-3 sm:grid-cols-4">
-            <div><label className="label" htmlFor="jd">JEV date</label><input id="jd" type="date" className="input" disabled={!editable} value={h.jevDate} onChange={(e) => setH({ ...h, jevDate: e.target.value })} /></div>
+            <div><label className="label required" htmlFor="jd">JEV date</label><input id="jd" type="date" className="input" disabled={!editable} value={h.jevDate} onChange={(e) => setH({ ...h, jevDate: e.target.value })} /></div>
             <div><label className="label" htmlFor="jb">Book</label><select id="jb" className="input" disabled={!editable} value={h.journal} onChange={(e) => setH({ ...h, journal: e.target.value as 'JCT' | 'GJ' })}><option value="GJ">General Journal</option><option value="JCT">Journal of Cash Transactions</option></select></div>
             <div><label className="label" htmlFor="pr">Primary ref (check/OR)</label><input id="pr" className="input" disabled={!editable} value={h.primaryReference} onChange={(e) => setH({ ...h, primaryReference: e.target.value })} /></div>
             <div><label className="label" htmlFor="sr">Secondary ref (DV/RCD)</label><input id="sr" className="input" disabled={!editable} value={h.secondaryReference} onChange={(e) => setH({ ...h, secondaryReference: e.target.value })} /></div>
-            <div className="sm:col-span-4"><label className="label" htmlFor="pt">Particulars</label><input id="pt" className="input" disabled={!editable} value={h.particulars} onChange={(e) => setH({ ...h, particulars: e.target.value })} /></div>
+            <div className="sm:col-span-4"><label className="label required" htmlFor="pt">Particulars</label><input id="pt" className="input" required minLength={3} disabled={!editable} value={h.particulars} onChange={(e) => setH({ ...h, particulars: e.target.value })} aria-describedby="pt-hint" /><p id="pt-hint" className="field-hint">Describe the transaction; at least 3 characters.</p></div>
           </div>
           <datalist id="coa-codes">{[...coa.values()].filter((a) => a.active).map((a) => <option key={a.accountCode} value={a.accountCode}>{a.accountName}</option>)}</datalist>
           <div className="mt-4 overflow-x-auto">
             <table className="table-base">
-              <thead><tr><th>Account</th><th>Subsidiary ID</th><th>Description</th><th className="num">Debit</th><th className="num">Credit</th><th /></tr></thead>
-              <tbody className="divide-y divide-slate-100">
+              <caption className="sr-only">Journal lines</caption>
+              <thead><tr><th scope="col">Account</th><th scope="col">Subsidiary ID</th><th scope="col">Description</th><th scope="col" className="num">Debit</th><th scope="col" className="num">Credit</th><th scope="col"><span className="sr-only">Remove</span></th></tr></thead>
+              <tbody ref={tableRef} className="divide-y divide-slate-100">
                 {rows.map((r, i) => {
                   const acct = coa.get(r.accountCode.trim());
+                  const err = lineErrors[i]!;
+                  const msg = (k: 'subsidiary' | 'debit' | 'credit', id: string) => (err[k] ? <p id={id} className="field-error">{err[k]}</p> : null);
                   return (
                     <tr key={i}>
                       <td className="min-w-[14rem]">
-                        <input list="coa-codes" className="input font-mono" disabled={!editable} value={r.accountCode} onChange={(e) => set(i, 'accountCode', e.target.value)} aria-label={`Line ${i + 1} account`} />
-                        <div className={`mt-0.5 text-[11px] ${acct ? 'text-slate-500' : 'text-red-600'}`}>{r.accountCode ? acct?.accountName ?? 'Unknown account' : ''}</div>
+                        <input id={`jev-acct-${i}`} list="coa-codes" className="input font-mono" disabled={!editable} value={r.accountCode} onChange={(e) => set(i, 'accountCode', e.target.value)} aria-label={`Line ${i + 1} account`} aria-invalid={err.account ? true : undefined} aria-describedby={`jev-acct-${i}-m`} />
+                        {err.account ? <p id={`jev-acct-${i}-m`} className="field-error">{err.account}</p> : <p id={`jev-acct-${i}-m`} className="mt-0.5 text-[11px] text-slate-600">{acct?.accountName ?? ''}</p>}
                       </td>
-                      <td><input className="input font-mono text-xs" disabled={!editable} value={r.subsidiaryId} placeholder={acct?.requiresSubsidiaryLedger ? 'required' : ''} onChange={(e) => set(i, 'subsidiaryId', e.target.value)} aria-label={`Line ${i + 1} subsidiary`} /></td>
-                      <td><input className="input" disabled={!editable} value={r.lineDescription} onChange={(e) => set(i, 'lineDescription', e.target.value)} aria-label={`Line ${i + 1} description`} /></td>
-                      <td><input className={`input num ${parsed[i]!.debit === null ? 'border-red-500' : ''}`} inputMode="decimal" disabled={!editable} value={r.debit} onChange={(e) => set(i, 'debit', e.target.value)} aria-label={`Line ${i + 1} debit`} /></td>
-                      <td><input className={`input num ${parsed[i]!.credit === null ? 'border-red-500' : ''}`} inputMode="decimal" disabled={!editable} value={r.credit} onChange={(e) => set(i, 'credit', e.target.value)} aria-label={`Line ${i + 1} credit`} /></td>
-                      <td>{editable && rows.length > 2 && <button className="btn-ghost px-2" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`}>✕</button>}</td>
+                      <td className="min-w-[8rem]">
+                        <input className="input font-mono text-xs" disabled={!editable} value={r.subsidiaryId} placeholder={acct?.requiresSubsidiaryLedger ? 'Required' : 'Optional'} onChange={(e) => set(i, 'subsidiaryId', e.target.value)} aria-label={`Line ${i + 1} subsidiary`} aria-invalid={err.subsidiary ? true : undefined} aria-describedby={err.subsidiary ? `jev-sl-${i}-m` : undefined} />
+                        {msg('subsidiary', `jev-sl-${i}-m`)}
+                      </td>
+                      <td className="min-w-[12rem]"><input className="input" disabled={!editable} value={r.lineDescription} onChange={(e) => set(i, 'lineDescription', e.target.value)} aria-label={`Line ${i + 1} description`} /></td>
+                      <td className="min-w-[8rem]">
+                        <input className="input num" inputMode="decimal" placeholder="0.00" disabled={!editable} value={r.debit} onChange={(e) => set(i, 'debit', e.target.value)} aria-label={`Line ${i + 1} debit`} aria-invalid={err.debit ? true : undefined} aria-describedby={err.debit ? `jev-dr-${i}-m` : undefined} />
+                        {msg('debit', `jev-dr-${i}-m`)}
+                      </td>
+                      <td className="min-w-[8rem]">
+                        <input className="input num" inputMode="decimal" placeholder="0.00" disabled={!editable} value={r.credit} onChange={(e) => set(i, 'credit', e.target.value)} aria-label={`Line ${i + 1} credit`} aria-invalid={err.credit ? true : undefined} aria-describedby={err.credit ? `jev-cr-${i}-m` : undefined} />
+                        {msg('credit', `jev-cr-${i}-m`)}
+                      </td>
+                      <td>{editable && rows.length > 2 && <button type="button" className="btn-ghost btn-icon text-slate-500 hover:text-red-700" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`}><Icon name="trash" /></button>}</td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
                 <tr className="font-semibold">
-                  <td colSpan={3} className="px-3 py-2">{editable && <button className="btn-ghost px-2 py-1" onClick={() => setRows([...rows, blank()])}>+ Add line</button>}</td>
+                  <td colSpan={3} className="px-3 py-2">{editable && <button type="button" className="btn-ghost btn-sm" onClick={() => { focusLine.current = rows.length; setRows([...rows, blank()]); }}><Icon name="plus" /> Add line</button>}</td>
                   <td className="num px-3 py-2">{totals ? formatPesos(totals.totalDebit) : '—'}</td>
                   <td className="num px-3 py-2">{totals ? formatPesos(totals.totalCredit) : '—'}</td>
                   <td />
                 </tr>
-                <tr><td colSpan={6} className={`px-3 pb-2 text-right text-xs ${totals?.balanced ? 'text-emerald-700' : 'text-red-700'}`}>{totals ? (totals.balanced ? (totals.totalDebit > 0 ? 'Balanced' : '') : `Out of balance by ${formatPesos(totals.difference)}`) : 'Fix invalid amounts'}</td></tr>
+                <tr>
+                  <td colSpan={6} className="px-3 pb-2 text-right text-xs" aria-live="polite">
+                    {totals ? (
+                      totals.balanced ? (
+                        totals.totalDebit > 0 && <span className="inline-flex items-center gap-1 font-semibold text-emerald-800"><Icon name="check" className="h-3.5 w-3.5" /> Balanced</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-red-700"><Icon name="alert" className="h-3.5 w-3.5" /> Out of balance by {formatPesos(totals.difference)}</span>
+                      )
+                    ) : (
+                      <span className="font-semibold text-red-700">Fix invalid amounts</span>
+                    )}
+                  </td>
+                </tr>
               </tfoot>
             </table>
           </div>
+          {editable && jev && problems.length > 0 && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="flex items-center gap-1.5 font-semibold"><Icon name="alert" /> Before submitting for review</p>
+              <ul className="mt-1 list-disc pl-6">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
+            </div>
+          )}
         </>
       )}
       {confirm && jev && (
