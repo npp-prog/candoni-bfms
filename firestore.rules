@@ -256,6 +256,12 @@ service cloud.firestore {
       allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
+    // Phase 10 documents written only by Cloud Functions.
+    match /purchaseRequests/{id}       { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /purchaseOrders/{id}         { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /inspectionReports/{id}      { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /requisitions/{id}           { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /depreciationRuns/{id}       { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /biologicalAssets/{id} {
       allow read: if canReadScoped(resource.data);
       allow create, update: if false; // via saveSource/sourceAction and module callables only

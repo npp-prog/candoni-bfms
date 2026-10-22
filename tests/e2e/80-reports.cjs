@@ -32,9 +32,12 @@ const { as, db, expectOk, expectFail, done } = require('./lib.cjs');
     console.log('      package after review:', after.status, '(expect RETURNED)');
     await expectOk('BT regenerates (only the returned item changes)', bt('generateMonthlyPackage', base));
     await expectOk('BT resubmits', bt('submitMonthlyPackage', base));
-    await expectOk('MA accepts SAOB', ma('reviewPackageItem', { ...base, reportCode: 'SAOB', decision: 'ACCEPT' }));
+    // The corrected SAOB and the regenerated transmittal (it lists the new versions) need review again.
+    const resub = (await db.doc('reportPackages/AGBOY_2026_03').get()).data();
+    for (const i of resub.items.filter((x) => x.status === 'GENERATED')) await expectOk(`MA accepts resubmitted ${i.reportCode}`, ma('reviewPackageItem', { ...base, reportCode: i.reportCode, decision: 'ACCEPT' }));
     const fin = (await db.doc('reportPackages/AGBOY_2026_03').get()).data();
-    console.log('      package final:', fin.status, '(expect ACCEPTED)');
+    if (fin.status !== 'ACCEPTED') await expectFail(`package should be ACCEPTED, is ${fin.status}`, Promise.resolve(), /never/);
+    else console.log('  ok   package ACCEPTED');
   }
   // Finalize on a quiet month: other scripts intentionally leave March entries in review, which
   // (correctly) blocks locking March.

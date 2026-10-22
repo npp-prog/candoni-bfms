@@ -46,10 +46,10 @@ export function VouchersTab() {
         }
         empty={`No disbursement vouchers for FY ${fiscalYear}.`}
         columns={[
-          { label: 'DV no.', render: (r) => r.dvNumber ?? <span className="text-slate-500">draft</span> },
-          { label: 'Date', render: (r) => r.dvDate },
+          { label: 'DV no.', className: 'whitespace-nowrap', render: (r) => r.dvNumber ?? <span className="text-slate-500">draft</span> },
+          { label: 'Date', className: 'whitespace-nowrap', render: (r) => r.dvDate },
           { label: 'Payee', className: 'max-w-[14rem] truncate', render: (r) => r.payee?.name },
-          { label: 'Particulars', className: 'max-w-sm truncate', render: (r) => r.particulars },
+          { label: 'Particulars', className: 'max-w-[16rem] truncate', render: (r) => r.particulars },
           { label: 'Category', render: (r) => <span className="text-xs">{r.dvCategory.replace(/_/g, ' ')}</span> },
           { label: 'Net', numeric: true, render: (r) => <Money value={r.netAmount} /> },
           { label: 'Payment', render: (r) => <span className="text-xs">{r.paymentMethod}{r.checkNumber ? ` #${r.checkNumber}` : r.adaNumber ? ` ${r.adaNumber}` : ''} · {PAY_LABEL[r.paymentStatus] ?? r.paymentStatus}</span> },
