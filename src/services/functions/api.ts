@@ -1,6 +1,11 @@
-import type { BarangayId, BarangayScope, JournalLineInput, RoleCode } from '@bfms/shared';
+import type { BarangayId, BarangayScope, JournalLineInput, ReportParams, RoleCode } from '@bfms/shared';
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { functions } from '../firebase/app';
+
+/** Typed wrapper for a Cloud Function. Module folders use it for their own callables. */
+export function callFn<I, O>(name: string) {
+  return call<I, O>(name);
+}
 
 /** Typed wrappers for Cloud Functions. All sensitive writes go through here. */
 function call<I, O>(name: string) {
@@ -40,6 +45,26 @@ export const api = {
   returnJournalEntry: call<{ jevId: string; remarks: string }, { status: string }>('returnJournalEntry'),
   postJournalEntry: call<{ jevId: string }, { jevNumber: string; alreadyPosted: boolean }>('postJournalEntry'),
   reverseJournalEntry: call<{ jevId: string; reversalDate: string; reason: string }, { reversalJevId: string; jevNumber: string }>('reverseJournalEntry'),
+
+  // Generic source-document engine (Phases 3–10).
+  saveSource: call<{ module: string; id?: string; barangayId: BarangayId; data: unknown }, { id: string }>('saveSource'),
+  sourceAction: call<{ module: string; id: string; action: string; remarks?: string; payload?: Record<string, unknown> }, { status: string; number: string | null; jevId: string | null }>('sourceAction'),
+
+  // Barangay setup masters.
+  saveBankAccount: call<{ id?: string; barangayId: BarangayId; bankName: string; branch: string; accountName: string; accountNumber: string; accountType: 'CURRENT' | 'SAVINGS' | 'TIME_DEPOSIT'; fundId: string; subsidiaryCode: string; active: boolean }, { id: string; subsidiaryId: string }>('saveBankAccount'),
+  saveSubsidiaryAccount: call<{ barangayId: BarangayId; accountCode: string; subsidiaryCode: string; subsidiaryName: string; type: string; partyId?: string | null; active: boolean }, { id: string }>('saveSubsidiaryAccount'),
+  saveSignatory: call<{ id?: string; barangayId: BarangayId | 'MUNICIPAL'; role: string; name: string; position: string; validFrom: string; validTo: string | null; active: boolean }, { id: string }>('saveSignatory'),
+  saveOffice: call<{ id?: string; barangayId: BarangayId; officeCode: string; officeName: string; active: boolean }, { id: string }>('saveOffice'),
+
+  // Report Center (Phase 12).
+  generateReportSnapshot: call<{ code: string; params: ReportParams }, { id: string; version: number; overall: string; reused: boolean }>('generateReportSnapshot'),
+  finalizeReport: call<{ reportId: string }, { status: string }>('finalizeReport'),
+  generateMonthlyPackage: call<{ barangayId: BarangayId; fiscalYear: number; month: number }, { packageId: string; overall: string; items: Array<{ reportCode: string; status: string; overall: string | null; versions: number }> }>('generateMonthlyPackage'),
+  submitMonthlyPackage: call<{ barangayId: BarangayId; fiscalYear: number; month: number }, { status: string }>('submitMonthlyPackage'),
+  reviewPackageItem: call<{ barangayId: BarangayId; fiscalYear: number; month: number; reportCode: string; decision: 'ACCEPT' | 'RETURN'; remarks?: string | null }, { itemStatus: string; packageStatus: string }>('reviewPackageItem'),
+
+  // Budget.
+  saveEstimatedIncome: call<{ barangayId: BarangayId; fiscalYear: number; fundId: string; incomeAccountCode: string; estimatedIncome: number }, { id: string }>('saveEstimatedIncome'),
 };
 
 /** Human message from a Functions error (HttpsError carries the BfmsError message). */

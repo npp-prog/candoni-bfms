@@ -84,8 +84,10 @@ describe('barangay isolation', () => {
 });
 
 describe('source-document writes', () => {
-  it('treasurer creates a DRAFT DV in own barangay', async () => {
-    await assertSucceeds(setDoc(doc(as('agboyTreasurer'), 'disbursementVouchers/new1'), draftDv('agboyTreasurer-uid')));
+  // Source documents are written only by Cloud Functions (saveSource / module callables), which
+  // validate against related records (series, obligations, balances). Even a valid draft is refused.
+  it('treasurer cannot write even a valid DRAFT DV directly', async () => {
+    await assertFails(setDoc(doc(as('agboyTreasurer'), 'disbursementVouchers/new1'), draftDv('agboyTreasurer-uid')));
   });
   it('cannot create in another barangay, as POSTED, with server fields, or as someone else', async () => {
     const db = as('agboyTreasurer');
@@ -95,10 +97,10 @@ describe('source-document writes', () => {
     await assertFails(setDoc(doc(db, 'disbursementVouchers/x4'), draftDv('someone-else')));
     await assertFails(setDoc(doc(db, 'disbursementVouchers/x5'), draftDv('agboyTreasurer-uid', { netAmount: 1 })));
   });
-  it('can edit DRAFT but not SUBMITTED; cannot change status or barangay', async () => {
+  it('cannot edit DRAFT or SUBMITTED records directly', async () => {
     const db = as('agboyTreasurer');
     const touch = { updatedBy: 'agboyTreasurer-uid', updatedAt: serverTimestamp() };
-    await assertSucceeds(updateDoc(doc(db, 'disbursementVouchers/draft'), { particulars: 'Fuel for patrol', ...touch }));
+    await assertFails(updateDoc(doc(db, 'disbursementVouchers/draft'), { particulars: 'Fuel for patrol', ...touch }));
     await assertFails(updateDoc(doc(db, 'disbursementVouchers/draft'), { status: 'SUBMITTED', ...touch }));
     await assertFails(updateDoc(doc(db, 'disbursementVouchers/draft'), { barangayId: 'BANGA', ...touch }));
     await assertFails(updateDoc(doc(db, 'disbursementVouchers/draft'), { netAmount: 1, ...touch }));

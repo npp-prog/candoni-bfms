@@ -1,4 +1,5 @@
 import {
+  bankPeriodDocId,
   BARANGAY_IDS,
   COL,
   assertPeriodTransition,
@@ -135,8 +136,11 @@ export const setPeriodReview = secureCallable(periodInput.extend({ review: z.boo
 });
 
 /**
- * Lock checklist (04 §19): no APPROVED-but-unposted JEVs in the period.
- * TB balance and bank reconciliation checks are added in Phases 8–9.
+ * Lock checklist (04 §19):
+ *  1. no journal entries of the period still FOR_REVIEW or APPROVED-but-unposted;
+ *  2. the Trial Balance through the month is balanced (Σ debits = Σ credits of the roll-up rows);
+ *  3. every active bank account has a FINAL reconciliation for the month — or the locker states a
+ *     waiver reason (≥ 10 characters), which is kept in the period history and audit log.
  */
 export const lockAccountingPeriod = secureCallable(periodInput, async (input, ctx) => {
   ctx.require('period.lock', input.barangayId);
@@ -152,6 +156,25 @@ export const lockAccountingPeriod = secureCallable(periodInput, async (input, ct
     );
     if (!pending.empty)
       throw new HttpsError('failed-precondition', `There are journal entries still in review or approved but not posted for ${p.periodCode}.`);
+    const balances = await tx.get(db.collection(COL.accountBalances).where('barangayId', '==', input.barangayId).where('fiscalYear', '==', input.fiscalYear));
+    let dr = 0;
+    let cr = 0;
+    for (const b of balances.docs) {
+      if (b.get('subsidiaryId') !== null || (b.get('month') as number) > input.month) continue;
+      dr += b.get('debit') as number;
+      cr += b.get('credit') as number;
+    }
+    if (dr !== cr) throw new HttpsError('failed-precondition', `The trial balance through ${p.periodCode} does not balance (debits ${dr / 100}, credits ${cr / 100}).`);
+    if (input.month >= 1 && input.month <= 12) {
+      const banks = await tx.get(db.collection(COL.bankAccounts).where('barangayId', '==', input.barangayId).where('active', '==', true));
+      const missing: string[] = [];
+      for (const bank of banks.docs) {
+        const recon = await tx.get(db.collection(COL.bankReconciliations).doc(bankPeriodDocId(input.barangayId, bank.id, input.fiscalYear, input.month)));
+        if (recon.get('status') !== 'FINAL') missing.push(`${bank.get('bankName') as string} ${String(bank.get('accountNumber')).slice(-4)}`);
+      }
+      if (missing.length && (!input.reason || input.reason.trim().length < 10))
+        throw new HttpsError('failed-precondition', `Bank reconciliation is not FINAL for: ${missing.join(', ')}. Finalize it, or state a waiver reason (at least 10 characters) to lock anyway.`);
+    }
   });
 });
 

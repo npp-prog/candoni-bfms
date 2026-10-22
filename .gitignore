@@ -11,3 +11,6 @@ coverage/
 service-account*.json
 *-firebase-adminsdk-*.json
 .DS_Store
+.firebase.e2e-*
+tests/e2e/.reports.cjs
+.claude/worktrees/

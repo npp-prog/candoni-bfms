@@ -8,8 +8,9 @@ rules_version = '2';
 //  * Identity comes from the custom claim  token.a = { <BARANGAY|ALL>: [claimCodes] }.
 //  * Barangay isolation: every barangay-owned document carries barangayId; a user may touch it only
 //    when token.a has that barangay or 'ALL'.
-//  * Clients may create/edit SOURCE documents only in DRAFT/RETURNED, only in their barangay, and never
-//    server-owned fields. All status transitions, numbering, posting and totals go through Functions.
+//  * Clients never write SOURCE documents: drafts, edits and every status transition go through Cloud
+//    Functions (saveSource/sourceAction and module callables), which validate against related records.
+//    canCreateSource/canUpdateSource are kept for reference but no longer granted.
 //  * Accounting core, audit, sequences, balances, reports: client writes are always denied.
 //
 // Claim codes: SA super_admin · MA municipal_accountant · AR accounting_reviewer · AS accounting_staff
@@ -37,7 +38,8 @@ service cloud.firestore {
     // Everyone with a transactional role (NOT super admin, NOT auditor).
     function fullReaderRoles() { return ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE']; }
     function auditorVisibleStatuses() {
-      return ['SUBMITTED', 'FOR_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACCEPTED', 'POSTED', 'CLOSED', 'CERTIFIED', 'ACTIVE', 'FINAL', 'REVERSED'];
+      return ['SUBMITTED', 'FOR_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACCEPTED', 'POSTED', 'CLOSED', 'CERTIFIED', 'ACTIVE', 'FINAL', 'REVERSED',
+              'ISSUED', 'RELEASED', 'CLEARED', 'OUTSTANDING', 'STALE', 'CANCELLED', 'PARTIALLY_LIQUIDATED', 'FULLY_LIQUIDATED'];
     }
 
     // Read rule for barangay-owned documents that have a `status`.
@@ -158,20 +160,17 @@ service cloud.firestore {
     // Budget
     match /appropriations/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['AC', 'BE', 'AS', 'MA']);
-      allow update: if canUpdateSource(['AC', 'BE', 'AS', 'MA']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /appropriationAdjustments/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['AC', 'BE']);
-      allow update: if canUpdateSource(['AC', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /obligations/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'AC', 'BE']);
-      allow update: if canUpdateSource(['BT', 'AC', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /estimatedIncome/{id} {
@@ -182,38 +181,32 @@ service cloud.firestore {
     // Treasury
     match /collections/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /deposits/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /rcdReports/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT']);
-      allow update: if canUpdateSource(['BT']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /rcrReports/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT']);
-      allow update: if canUpdateSource(['BT']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /disbursementVouchers/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /payrolls/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
       match /entries/{entryId} {
         allow read: if canReadScoped(get(/databases/$(database)/documents/payrolls/$(id)).data);
@@ -222,8 +215,7 @@ service cloud.firestore {
     }
     match /liquidations/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
       match /items/{itemId} {
         allow read: if canReadScoped(get(/databases/$(database)/documents/liquidations/$(id)).data);
@@ -232,16 +224,13 @@ service cloud.firestore {
     }
     match /pettyCashTransactions/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['BT', 'BE']);
-      allow update: if canUpdateSource(['BT', 'BE']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /bankStatements/{id} {
-      allow read: if canReadScopedNoStatus(resource.data);
-      allow create: if signedIn() && isBarangayId(request.resource.data.barangayId)
-        && hasAnyRole(request.resource.data.barangayId, ['BT', 'AS', 'AR', 'MA'])
-        && request.resource.data.createdBy == uid();
-      allow update, delete: if false;
+      // resource == null: the month's statement does not exist yet (lets the page listen for it).
+      allow read: if resource == null && hasAnyAssignment() || resource != null && canReadScopedNoStatus(resource.data);
+      allow write: if false; // saveBankStatement validates and balances the statement server-side
       match /lines/{lineId} {
         allow read: if canReadScopedNoStatus(get(/databases/$(database)/documents/bankStatements/$(id)).data);
         allow write: if false;
@@ -251,8 +240,7 @@ service cloud.firestore {
     // Property
     match /ppe/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['PO', 'AS']);
-      allow update: if canUpdateSource(['PO', 'AS']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
     match /inventoryItems/{id} {
@@ -265,14 +253,18 @@ service cloud.firestore {
     }
     match /propertyDocuments/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['PO', 'AS']);
-      allow update: if canUpdateSource(['PO', 'AS']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
+    // Phase 10 documents written only by Cloud Functions.
+    match /purchaseRequests/{id}       { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /purchaseOrders/{id}         { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /inspectionReports/{id}      { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /requisitions/{id}           { allow read: if canReadScoped(resource.data);         allow write: if false; }
+    match /depreciationRuns/{id}       { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /biologicalAssets/{id} {
       allow read: if canReadScoped(resource.data);
-      allow create: if canCreateSource(['PO', 'AS']);
-      allow update: if canUpdateSource(['PO', 'AS']);
+      allow create, update: if false; // via saveSource/sourceAction and module callables only
       allow delete: if false;
     }
 
@@ -285,7 +277,7 @@ service cloud.firestore {
     match /specialTrustFunds/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /raoEntries/{id}             { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /bankReconciliations/{id} {
-      allow read: if canReadScoped(resource.data);
+      allow read: if resource == null && hasAnyAssignment() || resource != null && canReadScoped(resource.data);
       allow write: if false;
       match /items/{itemId} {
         allow read: if canReadScoped(get(/databases/$(database)/documents/bankReconciliations/$(id)).data);
@@ -319,7 +311,15 @@ service cloud.firestore {
       allow read: if hasAnyRole(resource.data.barangayId, fullReaderRoles())
         || (hasAnyRole(resource.data.barangayId, ['AU']) && resource.data.status in ['ACCEPTED', 'FINAL']);
       allow write: if false;
+      // Chunked JSON payload of the snapshot; readable by whoever may read the snapshot.
+      match /payload/{chunk} {
+        allow read: if hasAnyRole(get(/databases/$(database)/documents/generatedReports/$(id)).data.barangayId, fullReaderRoles())
+          || (hasAnyRole(get(/databases/$(database)/documents/generatedReports/$(id)).data.barangayId, ['AU'])
+              && get(/databases/$(database)/documents/generatedReports/$(id)).data.status in ['ACCEPTED', 'FINAL']);
+        allow write: if false;
+      }
     }
+    match /reportPackages/{id}         { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /reportSubmissions/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /nfsNarratives/{id} {
       allow read: if canReadScopedNoStatus(resource.data);

@@ -19,7 +19,7 @@ export function secureCallable<S extends z.ZodTypeAny, R>(
       if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
       const parsed = schema.safeParse(req.data);
       if (!parsed.success) {
-        throw new HttpsError('invalid-argument', 'Invalid request.', {
+        throw new HttpsError('invalid-argument', `Invalid request: ${parsed.error.issues.slice(0, 3).map((i) => `${i.path.join('.') || 'input'} — ${i.message}`).join('; ')}`, {
           issues: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
         });
       }

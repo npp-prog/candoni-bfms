@@ -17,6 +17,21 @@ export const NUMBER_FORMATS = {
   PAR: { prefix: 'PAR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
   RIS: { prefix: 'RIS', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
   IAR: { prefix: 'IAR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  // Phases 4–10 (pre-registered so modules never edit this file concurrently).
+  RCR: { prefix: 'RCR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  DEP: { prefix: 'DEP', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  ADA: { prefix: 'ADA', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  PCR: { prefix: 'PCR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  STF: { prefix: 'STF', format: '{PREFIX}-{YYYY}-{N:3}' },
+  PRQ: { prefix: 'PR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  PO: { prefix: 'PO', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  RRPE: { prefix: 'RRPE', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  PTR: { prefix: 'PTR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  ARDSM: { prefix: 'ARDSM', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  IIRUP: { prefix: 'IIRUP', format: '{PREFIX}-{YYYY}-{N:3}' },
+  BAPC: { prefix: 'BA', format: '{PREFIX}-{YYYY}-{N:4}' },
+  DEPR: { prefix: 'DEPR', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
+  MEMO: { prefix: 'BM', format: '{PREFIX}-{YYYY}-{MM}-{N:3}' },
 } as const;
 
 export type NumberedDocType = keyof typeof NUMBER_FORMATS;

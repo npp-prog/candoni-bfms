@@ -53,6 +53,7 @@ export const COL = {
   reportMappings: 'reportMappings',
   complianceRequirements: 'complianceRequirements',
   reportSubmissions: 'reportSubmissions',
+  reportPackages: 'reportPackages',
   nfsNarratives: 'nfsNarratives',
   notifications: 'notifications',
   workflowHistory: 'workflowHistory',

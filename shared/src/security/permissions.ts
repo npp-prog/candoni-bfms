@@ -10,6 +10,8 @@ export const PERMISSIONS = {
   'admin.config.manage': ['super_admin', 'municipal_accountant'],
   'coa.manage': ['municipal_accountant'],
   'subsidiary.manage': ['municipal_accountant', 'accounting_reviewer', 'accounting_staff'],
+  /** Barangay masters: bank accounts, accountable officers' ledgers, signatories, offices. */
+  'barangay.setup': ['municipal_accountant', 'accounting_reviewer', 'accounting_staff', 'punong_barangay', 'barangay_treasurer'],
   'fiscalYear.manage': ['super_admin', 'municipal_accountant'],
   'period.lock': ['municipal_accountant', 'accounting_reviewer'],
   'period.reopen': ['municipal_accountant'],

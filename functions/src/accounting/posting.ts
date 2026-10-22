@@ -6,6 +6,7 @@ import {
   assertSegregation,
   balanceDeltas,
   findTransition,
+  JEV_SOURCES,
   JEV_TRANSITIONS,
   periodDocId,
   periodOfDate,
@@ -27,17 +28,6 @@ import { db, FieldValue, Timestamp } from '../lib/admin';
 import { secureCallable } from '../lib/callable';
 import type { CallerContext } from '../lib/context';
 import { SequenceAllocator } from '../numbering/sequences';
-
-/** Source module → collection whose document is stamped with the JEV on posting. */
-const SOURCE_COLLECTION: Partial<Record<SourceModule, string>> = {
-  RCD: COL.rcdReports,
-  DEPOSIT: COL.deposits,
-  DV: COL.disbursementVouchers,
-  PAYROLL: COL.payrolls,
-  LIQUIDATION: COL.liquidations,
-  PETTY_CASH: COL.pettyCashTransactions,
-  BANK_MEMO: COL.bankMemos,
-};
 
 interface Loaded {
   accounts: Map<string, ChartOfAccountDoc>;
@@ -119,16 +109,16 @@ export async function postJournalEntryTx(jevId: string, ctx: CallerContext) {
     // 10–12. Debit = Credit
     const totals = validateJournalBalance(lines);
     // Source document (read before writes)
-    const srcCol = SOURCE_COLLECTION[jev.sourceModule];
+    const source = JEV_SOURCES[jev.sourceModule];
     let srcRef: DocumentReference | null = null;
-    if (srcCol && jev.sourceDocumentId) {
-      srcRef = db.collection(srcCol).doc(jev.sourceDocumentId);
+    if (source && jev.sourceDocumentId) {
+      srcRef = db.collection(source.collection).doc(jev.sourceDocumentId);
       const src = await tx.get(srcRef);
       if (!src.exists) throw new BfmsError('VALIDATION_FAILED', 'Source document not found.');
       if (src.get('barangayId') !== jev.barangayId) throw new BfmsError('BARANGAY_MISMATCH', 'Source document belongs to another barangay.');
       const srcJev = src.get('jevId') as string | null | undefined;
       if (srcJev && srcJev !== jevId) throw new BfmsError('ALREADY_POSTED', 'The source document is already linked to another journal entry.', { jevId: srcJev });
-      if (!['ACCEPTED', 'APPROVED'].includes(src.get('status') as string))
+      if (source.workflow && !['ACCEPTED', 'APPROVED'].includes(src.get('status') as string))
         throw new BfmsError('INVALID_STATUS', `The source document is ${String(src.get('status'))}; only ACCEPTED/APPROVED documents can be posted.`);
     }
     const seq = await SequenceAllocator.read(tx, jev.barangayId, jev.fiscalYear, 'JEV');
@@ -152,7 +142,8 @@ export async function postJournalEntryTx(jevId: string, ctx: CallerContext) {
     lineSnap.docs.forEach((d) => tx.update(d.ref, { posted: true, jevNumber }));
     // 16. Update summaries (period balance aggregates)
     writeBalances(tx, jev, lines);
-    if (srcRef) tx.update(srcRef, { jevId, jevNumber, status: 'POSTED', postedBy: ctx.uid, postedAt: now });
+    if (srcRef)
+      tx.update(srcRef, source?.workflow ? { jevId, jevNumber, status: 'POSTED', postedBy: ctx.uid, postedAt: now } : { jevId, jevNumber, postedAt: now });
     // 17. Audit + workflow history
     writeWorkflowHistory(tx, ctx, { barangayId: jev.barangayId, module: 'journalEntries', recordId: jevId, fromStatus: jev.status, toStatus: 'POSTED' });
     audit.write({

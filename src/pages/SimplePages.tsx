@@ -8,7 +8,7 @@ export function ModulePlaceholder() {
   return (
     <>
       <PageHeader title={item?.label ?? 'Module'} breadcrumbs={['BFMS', item?.label ?? '']} />
-      <EmptyState title={`Scheduled for Phase ${item?.phase ?? '—'}`}>
+      <EmptyState icon="calendar" title={`Scheduled for Phase ${item?.phase ?? '—'}`} action={<Link className="btn-secondary" to="/dashboard">Back to dashboard</Link>}>
         This module is designed in <code>docs/architecture</code>. It is built in the order the development roadmap sets:
         foundations and the posting engine come first, and source modules follow.
       </EmptyState>
@@ -18,12 +18,12 @@ export function ModulePlaceholder() {
 
 export function NotFound() {
   return (
-    <EmptyState title="Page not found">
-      <Link className="text-navy-700 underline" to="/dashboard">Back to dashboard</Link>
+    <EmptyState icon="alert" title="Page not found" action={<Link className="btn-secondary" to="/dashboard">Back to dashboard</Link>}>
+      The address may be mistyped, or the page may have moved.
     </EmptyState>
   );
 }
 
 export function Forbidden() {
-  return <EmptyState title="You do not have access to this page.">Ask the Municipal Accounting Office if you need access.</EmptyState>;
+  return <EmptyState icon="alert" title="You do not have access to this page.">Ask the Municipal Accounting Office if you need access.</EmptyState>;
 }
