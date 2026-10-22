@@ -13,3 +13,4 @@ service-account*.json
 .DS_Store
 .firebase.e2e-*
 tests/e2e/.reports.cjs
+.claude/worktrees/
