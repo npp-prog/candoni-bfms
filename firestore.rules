@@ -38,7 +38,8 @@ service cloud.firestore {
     // Everyone with a transactional role (NOT super admin, NOT auditor).
     function fullReaderRoles() { return ['MA', 'AR', 'AS', 'PB', 'BT', 'AC', 'PO', 'BE']; }
     function auditorVisibleStatuses() {
-      return ['SUBMITTED', 'FOR_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACCEPTED', 'POSTED', 'CLOSED', 'CERTIFIED', 'ACTIVE', 'FINAL', 'REVERSED'];
+      return ['SUBMITTED', 'FOR_REVIEW', 'RESUBMITTED', 'APPROVED', 'ACCEPTED', 'POSTED', 'CLOSED', 'CERTIFIED', 'ACTIVE', 'FINAL', 'REVERSED',
+              'ISSUED', 'RELEASED', 'CLEARED', 'OUTSTANDING', 'STALE', 'CANCELLED', 'PARTIALLY_LIQUIDATED', 'FULLY_LIQUIDATED'];
     }
 
     // Read rule for barangay-owned documents that have a `status`.

@@ -19,6 +19,9 @@ let failed = 0;
 const check = (label, ok, extra = '') => { console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${extra ? ` ${extra}` : ''}`); if (!ok) failed++; };
 
 (async () => {
+  // Other phases' scripts may have posted to the same bank ledger first; assert this script's change only.
+  const cibBefore = (await db.collection('accountBalances').where('barangayId', '==', B).where('fiscalYear', '==', FY).get()).docs
+    .map((d) => d.data()).filter((b) => b.accountCode === '1-01-02-010' && b.subsidiaryId === null).reduce((t, b) => t + b.debit - b.credit, 0);
   console.log('Phases 8 & 11 — Books of accounts and financial statements');
   const ma = await as('ma@test.local'), ar = await as('ar@test.local'), bt = await as('bt@test.local');
 
@@ -91,7 +94,7 @@ const check = (label, ok, extra = '') => { console.log(`  ${ok ? 'ok  ' : 'FAIL'
   const bals = (await db.collection('accountBalances').where('barangayId', '==', B).where('fiscalYear', '==', FY).get()).docs.map((d) => d.data());
   const sum = (f) => bals.filter(f).reduce((t, b) => t + b.debit - b.credit, 0);
   check('CIB roll-up = Σ SL', sum((b) => b.accountCode === '1-01-02-010' && b.subsidiaryId === null) === sum((b) => b.accountCode === '1-01-02-010' && b.subsidiaryId !== null));
-  check('cash in bank balance ₱505,000', sum((b) => b.accountCode === '1-01-02-010' && b.subsidiaryId === null) === P(500000 + 125000 - 18000 - 30000 - 40000 - 30000 - 2000));
+  check('cash in bank moved by ₱505,000', sum((b) => b.accountCode === '1-01-02-010' && b.subsidiaryId === null) - cibBefore === P(500000 + 125000 - 18000 - 30000 - 40000 - 30000 - 2000));
 
   // NFS narrative callable.
   await expectFail('BT cannot edit NFS narrative', bt('saveNfsNarrative', { barangayId: B, fiscalYear: FY, notes: [{ title: 'General Information', body: 'x' }] }), /permission/i);

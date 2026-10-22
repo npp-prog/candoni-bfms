@@ -36,11 +36,16 @@ const { as, db, expectOk, expectFail, done } = require('./lib.cjs');
     const fin = (await db.doc('reportPackages/AGBOY_2026_03').get()).data();
     console.log('      package final:', fin.status, '(expect ACCEPTED)');
   }
-  await expectFail('lock refused: bank reconciliation not FINAL', ma('lockAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3 }), /not FINAL/);
-  await expectOk('MA locks March with a waiver reason', ma('lockAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3, reason: 'Bank statement for March not yet received from LBP' }));
-  await expectOk('MA finalizes the SAOB version', ma('finalizeReport', { reportId: s1.id }));
-  await expectOk('MA reopens March', ma('reopenAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3, reason: 'Late obligation to record' }));
-  const stale = (await db.doc(`generatedReports/${s1.id}`).get()).data();
+  // Finalize on a quiet month: other scripts intentionally leave March entries in review, which
+  // (correctly) blocks locking March.
+  const nov = { barangayId: 'AGBOY', fiscalYear: 2026, month: 11 };
+  const sn = await expectOk('AC saves a November SAOB version', ac('generateReportSnapshot', { code: 'SAOB', params: nov }));
+  await expectFail('lock refused: bank reconciliation not FINAL', ma('lockAccountingPeriod', nov), /not FINAL/);
+  await expectOk('MA locks November with a waiver reason', ma('lockAccountingPeriod', { ...nov, reason: 'Bank statement for November not yet received from LBP' }));
+  await expectOk('MA finalizes the November SAOB', ma('finalizeReport', { reportId: sn.id }));
+  await expectOk('MA reopens November', ma('reopenAccountingPeriod', { ...nov, reason: 'Late obligation to record' }));
+  const stale = (await db.doc(`generatedReports/${sn.id}`).get()).data();
   console.log('      after reopen: status', stale.status, 'staleSource', stale.staleSource, '(expect FINAL true)');
+  if (!(stale.status === 'FINAL' && stale.staleSource === true)) await expectFail('stale flag', Promise.resolve(), /never/);
   done();
 })();

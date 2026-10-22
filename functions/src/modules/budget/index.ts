@@ -217,7 +217,8 @@ const obligation: ServerSourceModule<typeof obligationSchema> = {
         if (stfSnap) {
           const f = stfSnap.data() as SpecialTrustFundDoc;
           const amountObligated = (f.amountObligated + o.amount) as Centavos;
-          tx.update(stfSnap.ref, { amountObligated, balance: computeStfBalance({ ...f, amountObligated }), updatedAt: now });
+          const balance = computeStfBalance({ ...f, amountObligated });
+          tx.update(stfSnap.ref, { amountObligated, balance, status: balance <= 0 ? 'FULLY_UTILIZED' : f.status === 'FULLY_UTILIZED' ? 'ACTIVE' : f.status, updatedAt: now });
         }
         writeRao(tx, {
           barangayId: o.barangayId,
@@ -253,7 +254,8 @@ const obligation: ServerSourceModule<typeof obligationSchema> = {
         if (stfSnap?.exists) {
           const f = stfSnap.data() as SpecialTrustFundDoc;
           const amountObligated = (f.amountObligated - o.amount) as Centavos;
-          tx.update(stfSnap.ref, { amountObligated, balance: computeStfBalance({ ...f, amountObligated }), updatedAt: now });
+          const balance = computeStfBalance({ ...f, amountObligated });
+          tx.update(stfSnap.ref, { amountObligated, balance, status: balance <= 0 ? 'FULLY_UTILIZED' : f.status === 'FULLY_UTILIZED' ? 'ACTIVE' : f.status, updatedAt: now });
         }
         writeRao(tx, {
           barangayId: o.barangayId,
