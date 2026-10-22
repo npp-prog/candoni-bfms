@@ -1,4 +1,5 @@
 import {
+  bankPeriodDocId,
   BARANGAY_IDS,
   COL,
   assertPeriodTransition,
@@ -168,7 +169,7 @@ export const lockAccountingPeriod = secureCallable(periodInput, async (input, ct
       const banks = await tx.get(db.collection(COL.bankAccounts).where('barangayId', '==', input.barangayId).where('active', '==', true));
       const missing: string[] = [];
       for (const bank of banks.docs) {
-        const recon = await tx.get(db.collection(COL.bankReconciliations).doc(`${input.barangayId}_${bank.id}_${input.fiscalYear}_${String(input.month).padStart(2, '0')}`));
+        const recon = await tx.get(db.collection(COL.bankReconciliations).doc(bankPeriodDocId(input.barangayId, bank.id, input.fiscalYear, input.month)));
         if (recon.get('status') !== 'FINAL') missing.push(`${bank.get('bankName') as string} ${String(bank.get('accountNumber')).slice(-4)}`);
       }
       if (missing.length && (!input.reason || input.reason.trim().length < 10))

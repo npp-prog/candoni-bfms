@@ -5,8 +5,11 @@ const { as, db, admin, expectOk, expectFail, done } = require('./lib.cjs');
   console.log('Phase 9 Bank reconciliation');
   const ma = await as('ma@test.local'), ar = await as('ar@test.local'), bt = await as('bt@test.local');
   const B = 'AGBOY', FY = 2026, M = 3;
+  // A dedicated account (ledger CIB02) so other phases' checks/deposits on CIB01 don't change the figures.
+  const existing = (await db.collection('bankAccounts').where('barangayId', '==', B).get()).docs.find((d) => d.get('subsidiaryCode') === 'CIB02');
+  if (!existing) await bt('saveBankAccount', { barangayId: B, bankName: 'Development Bank of the Philippines', branch: 'Kabankalan', accountName: 'AGBOY BRGY COUNCIL-CANDONI', accountNumber: '0098765432', accountType: 'CURRENT', fundId: 'GF', subsidiaryCode: 'CIB02', active: true });
   const banks = await db.collection('bankAccounts').where('barangayId', '==', B).get();
-  const bankDoc = banks.docs.find((d) => d.get('subsidiaryCode') === 'CIB01') ?? banks.docs[0];
+  const bankDoc = banks.docs.find((d) => d.get('subsidiaryCode') === 'CIB02');
   if (!bankDoc) { console.log('  FAIL no bank account — run 00-setup first'); process.exit(1); }
   const bankId = bankDoc.id, sl = bankDoc.get('subsidiaryId');
   const now = admin.firestore.Timestamp.now();

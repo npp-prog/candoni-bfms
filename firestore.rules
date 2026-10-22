@@ -228,11 +228,9 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /bankStatements/{id} {
-      allow read: if canReadScopedNoStatus(resource.data);
-      allow create: if signedIn() && isBarangayId(request.resource.data.barangayId)
-        && hasAnyRole(request.resource.data.barangayId, ['BT', 'AS', 'AR', 'MA'])
-        && request.resource.data.createdBy == uid();
-      allow update, delete: if false;
+      // resource == null: the month's statement does not exist yet (lets the page listen for it).
+      allow read: if resource == null && hasAnyAssignment() || resource != null && canReadScopedNoStatus(resource.data);
+      allow write: if false; // saveBankStatement validates and balances the statement server-side
       match /lines/{lineId} {
         allow read: if canReadScopedNoStatus(get(/databases/$(database)/documents/bankStatements/$(id)).data);
         allow write: if false;
@@ -273,7 +271,7 @@ service cloud.firestore {
     match /specialTrustFunds/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /raoEntries/{id}             { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /bankReconciliations/{id} {
-      allow read: if canReadScoped(resource.data);
+      allow read: if resource == null && hasAnyAssignment() || resource != null && canReadScoped(resource.data);
       allow write: if false;
       match /items/{itemId} {
         allow read: if canReadScoped(get(/databases/$(database)/documents/bankReconciliations/$(id)).data);
