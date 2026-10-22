@@ -222,6 +222,8 @@ export function ConfirmDialog(props: {
   danger?: boolean;
   busy?: boolean;
   requireReason?: boolean;
+  /** Show the remarks box without requiring it (e.g. a waiver reason that is only sometimes needed). */
+  optionalReason?: string;
   reason?: string;
   onReasonChange?(v: string): void;
   onConfirm(): void;
@@ -245,6 +247,13 @@ export function ConfirmDialog(props: {
       }
     >
       <div className="text-sm text-slate-700">{props.message}</div>
+      {props.optionalReason && !props.requireReason && (
+        <div className="mt-4">
+          <label className="label" htmlFor="confirm-remarks">Remarks</label>
+          <textarea id="confirm-remarks" className="input" rows={2} aria-describedby="confirm-remarks-hint" value={props.reason ?? ''} onChange={(e) => props.onReasonChange?.(e.target.value)} />
+          <p id="confirm-remarks-hint" className="field-hint">{props.optionalReason}</p>
+        </div>
+      )}
       {props.requireReason && (
         <div className="mt-4">
           <label className="label required" htmlFor="confirm-reason">

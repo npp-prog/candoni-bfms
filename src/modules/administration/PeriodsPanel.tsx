@@ -97,13 +97,14 @@ export function PeriodsPanel() {
               : <>Confirm this action for <strong>{MONTHS[act.p.month]}</strong> ({bid}, FY {fiscalYear}).</>
           }
           requireReason={act.kind === 'reopen'}
+          optionalReason={act.kind === 'lock' ? 'Locking checks that the trial balance balances and that every bank reconciliation for the month is FINAL. If a reconciliation is not final yet, state the waiver reason here (at least 10 characters).' : undefined}
           reason={reason}
           onReasonChange={setReason}
           confirmLabel={act.kind === 'reopen' ? 'Reopen period' : 'Confirm'}
           onCancel={() => setAct(null)}
           onConfirm={() => {
             const base = { barangayId: bid, fiscalYear, month: act.p.month };
-            if (act.kind === 'lock') void run(() => api.lockAccountingPeriod(base), 'Period locked.');
+            if (act.kind === 'lock') void run(() => api.lockAccountingPeriod({ ...base, reason: reason.trim() || undefined }), 'Period locked.');
             if (act.kind === 'reopen') void run(() => api.reopenAccountingPeriod({ ...base, reason }), 'Period reopened.');
             if (act.kind === 'review') void run(() => api.setPeriodReview({ ...base, review: true }), 'Period set to review.');
             if (act.kind === 'unreview') void run(() => api.setPeriodReview({ ...base, review: false }), 'Period returned to open.');

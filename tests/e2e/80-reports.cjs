@@ -36,9 +36,8 @@ const { as, db, expectOk, expectFail, done } = require('./lib.cjs');
     const fin = (await db.doc('reportPackages/AGBOY_2026_03').get()).data();
     console.log('      package final:', fin.status, '(expect ACCEPTED)');
   }
-  await expectOk('MA locks March', ma('lockAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3 }).catch(async (e) => {
-    if (/REVIEW|OPEN/.test(e.message)) throw e; throw e;
-  }));
+  await expectFail('lock refused: bank reconciliation not FINAL', ma('lockAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3 }), /not FINAL/);
+  await expectOk('MA locks March with a waiver reason', ma('lockAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3, reason: 'Bank statement for March not yet received from LBP' }));
   await expectOk('MA finalizes the SAOB version', ma('finalizeReport', { reportId: s1.id }));
   await expectOk('MA reopens March', ma('reopenAccountingPeriod', { barangayId: 'AGBOY', fiscalYear: 2026, month: 3, reason: 'Late obligation to record' }));
   const stale = (await db.doc(`generatedReports/${s1.id}`).get()).data();
