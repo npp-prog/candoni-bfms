@@ -319,7 +319,15 @@ service cloud.firestore {
       allow read: if hasAnyRole(resource.data.barangayId, fullReaderRoles())
         || (hasAnyRole(resource.data.barangayId, ['AU']) && resource.data.status in ['ACCEPTED', 'FINAL']);
       allow write: if false;
+      // Chunked JSON payload of the snapshot; readable by whoever may read the snapshot.
+      match /payload/{chunk} {
+        allow read: if hasAnyRole(get(/databases/$(database)/documents/generatedReports/$(id)).data.barangayId, fullReaderRoles())
+          || (hasAnyRole(get(/databases/$(database)/documents/generatedReports/$(id)).data.barangayId, ['AU'])
+              && get(/databases/$(database)/documents/generatedReports/$(id)).data.status in ['ACCEPTED', 'FINAL']);
+        allow write: if false;
+      }
     }
+    match /reportPackages/{id}         { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /reportSubmissions/{id}      { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /nfsNarratives/{id} {
       allow read: if canReadScopedNoStatus(resource.data);

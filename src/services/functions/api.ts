@@ -1,4 +1,4 @@
-import type { BarangayId, BarangayScope, JournalLineInput, RoleCode } from '@bfms/shared';
+import type { BarangayId, BarangayScope, JournalLineInput, ReportParams, RoleCode } from '@bfms/shared';
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { functions } from '../firebase/app';
 
@@ -55,6 +55,13 @@ export const api = {
   saveSubsidiaryAccount: call<{ barangayId: BarangayId; accountCode: string; subsidiaryCode: string; subsidiaryName: string; type: string; partyId?: string | null; active: boolean }, { id: string }>('saveSubsidiaryAccount'),
   saveSignatory: call<{ id?: string; barangayId: BarangayId | 'MUNICIPAL'; role: string; name: string; position: string; validFrom: string; validTo: string | null; active: boolean }, { id: string }>('saveSignatory'),
   saveOffice: call<{ id?: string; barangayId: BarangayId; officeCode: string; officeName: string; active: boolean }, { id: string }>('saveOffice'),
+
+  // Report Center (Phase 12).
+  generateReportSnapshot: call<{ code: string; params: ReportParams }, { id: string; version: number; overall: string; reused: boolean }>('generateReportSnapshot'),
+  finalizeReport: call<{ reportId: string }, { status: string }>('finalizeReport'),
+  generateMonthlyPackage: call<{ barangayId: BarangayId; fiscalYear: number; month: number }, { packageId: string; overall: string; items: Array<{ reportCode: string; status: string; overall: string | null; versions: number }> }>('generateMonthlyPackage'),
+  submitMonthlyPackage: call<{ barangayId: BarangayId; fiscalYear: number; month: number }, { status: string }>('submitMonthlyPackage'),
+  reviewPackageItem: call<{ barangayId: BarangayId; fiscalYear: number; month: number; reportCode: string; decision: 'ACCEPT' | 'RETURN'; remarks?: string | null }, { itemStatus: string; packageStatus: string }>('reviewPackageItem'),
 
   // Budget.
   saveEstimatedIncome: call<{ barangayId: BarangayId; fiscalYear: number; fundId: string; incomeAccountCode: string; estimatedIncome: number }, { id: string }>('saveEstimatedIncome'),

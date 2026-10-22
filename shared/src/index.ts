@@ -50,3 +50,4 @@ export * from './reports/datasource';
 export * from './reports/context';
 export * from './reports/registry';
 export * from './reports/helpers';
+export * from './reports/compliance';
