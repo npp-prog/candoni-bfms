@@ -75,8 +75,9 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
       if (cur.barangayId !== input.barangayId) throw new BfmsError('BARANGAY_MISMATCH', 'Barangay cannot be changed.');
       if (cur.status !== 'DRAFT' && cur.status !== 'RETURNED')
         throw new BfmsError('INVALID_STATUS', `A ${cur.status} journal entry cannot be edited.`);
-      if (cur.sourceModule !== 'MANUAL' && cur.sourceModule !== 'IMPORT')
-        throw new BfmsError('INVALID_STATUS', `This entry was generated from ${cur.sourceModule}. Correct the source document instead (account reclassification of generated entries arrives in Phase 8).`);
+      // Generated entries keep their source link; accounting may reclassify their lines ("classify accounts", docs 04 §9).
+      if (cur.sourceModule !== 'MANUAL' && cur.sourceModule !== 'IMPORT' && cur.fiscalYear !== fiscalYear)
+        throw new BfmsError('PERIOD_MISMATCH', 'A generated entry must stay in the fiscal year of its source document.');
       oldLines = await tx.get(jevRef.collection(COL.lines));
     }
     const audit = await AuditWriter.begin(tx, ctx, input.barangayId);
@@ -90,8 +91,8 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
       fundId: input.fundId,
       journal: input.journal,
       entryType: input.entryType,
-      sourceModule: input.sourceModule,
-      sourceDocumentId: null,
+      sourceModule: existing?.exists ? (existing.get('sourceModule') as JournalEntryDoc['sourceModule']) : input.sourceModule,
+      sourceDocumentId: existing?.exists ? ((existing.get('sourceDocumentId') as string | null) ?? null) : null,
       primaryReference: input.primaryReference,
       secondaryReference: input.secondaryReference,
       tertiaryReference: input.tertiaryReference,

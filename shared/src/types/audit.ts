@@ -23,6 +23,13 @@ export const AUDIT_ACTIONS = [
   'EXPORT',
   'IMPORT_COMMIT',
   'SEED',
+  'CERTIFY',
+  'ISSUE',
+  'RELEASE',
+  'CANCEL',
+  'CLEAR',
+  'GENERATE',
+  'SUBMIT_PACKAGE',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

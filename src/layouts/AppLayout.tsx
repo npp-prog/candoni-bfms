@@ -7,6 +7,8 @@ import { CURRENT_PHASE, NAV } from '../config/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useBarangay } from '../contexts/BarangayContext';
 
+const GROUPS = ['Overview', 'Budget & Treasury', 'Accounting', 'Property', 'Reports', 'Settings'] as const;
+
 const headerSelect = 'h-9 rounded-md border border-navy-600 bg-navy-700 px-2 text-sm text-white disabled:opacity-80';
 
 export function AppLayout() {
@@ -33,7 +35,7 @@ export function AppLayout() {
         Skip to main content
       </a>
       {env.appEnv !== 'prod' && (
-        <div className="bg-gold-500 px-4 py-1 text-center text-xs font-semibold text-navy-900">
+        <div className="no-print bg-gold-500 px-4 py-1 text-center text-xs font-semibold text-navy-900">
           {env.appEnv.toUpperCase()} ENVIRONMENT — not the official books
         </div>
       )}
@@ -91,29 +93,38 @@ export function AppLayout() {
           className={`${open ? 'block' : 'hidden'} fixed bottom-0 left-0 top-14 z-20 w-64 overflow-y-auto border-r border-slate-200 bg-white shadow-lg lg:sticky lg:bottom-auto lg:top-14 lg:block lg:h-[calc(100vh-3.5rem)] lg:w-60 lg:shadow-none`}
         >
           <nav className="p-3" aria-label="Main">
-            <ul className="space-y-0.5">
-              {items.map((n) => {
-                const later = n.phase > CURRENT_PHASE;
-                return (
-                  <li key={n.path}>
-                    <NavLink
-                      to={n.path}
-                      className={({ isActive }) =>
-                        `flex min-h-[2.5rem] items-center justify-between rounded-md border-l-4 px-3 py-2 text-sm transition-colors ${isActive ? 'border-gold-500 bg-navy-50 font-semibold text-navy-800' : `border-transparent hover:bg-slate-100 ${later ? 'text-slate-500' : 'text-slate-800'}`}`
-                      }
-                    >
-                      {n.label}
-                      {later && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600" title={`Scheduled for Phase ${n.phase}`}>
-                          <span aria-hidden="true">P{n.phase}</span>
-                          <span className="sr-only">, scheduled for phase {n.phase}</span>
-                        </span>
-                      )}
-                    </NavLink>
-                  </li>
-                );
-              })}
-            </ul>
+            {GROUPS.map((g) => {
+              const groupItems = items.filter((n) => n.group === g);
+              if (!groupItems.length) return null;
+              return (
+                <div key={g} className="mb-3">
+                  {g !== 'Overview' && <h2 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{g}</h2>}
+                  <ul className="space-y-0.5">
+                    {groupItems.map((n) => {
+                      const later = n.phase > CURRENT_PHASE;
+                      return (
+                        <li key={n.path}>
+                          <NavLink
+                            to={n.path}
+                            className={({ isActive }) =>
+                              `flex min-h-[2.25rem] items-center justify-between rounded-md border-l-4 px-3 py-1.5 text-sm transition-colors ${isActive ? 'border-gold-500 bg-navy-50 font-semibold text-navy-800' : `border-transparent hover:bg-slate-100 ${later ? 'text-slate-500' : 'text-slate-800'}`}`
+                            }
+                          >
+                            {n.label}
+                            {later && (
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600" title={`Scheduled for Phase ${n.phase}`}>
+                                <span aria-hidden="true">P{n.phase}</span>
+                                <span className="sr-only">, scheduled for phase {n.phase}</span>
+                              </span>
+                            )}
+                          </NavLink>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
           </nav>
           <div className="border-t border-slate-200 p-3 text-xs text-slate-600 xl:hidden">
             <div className="font-medium text-slate-800">{profile?.displayName ?? user?.email}</div>

@@ -10,6 +10,8 @@ import { AppLayout } from './layouts/AppLayout';
 import { JournalEntriesPage } from './modules/accounting/JournalEntriesPage';
 import { AdminPage } from './modules/administration/AdminPage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
+import { MODULE_ROUTES } from './modules/registry';
+import { ReportViewerPage } from './reports/ReportViewerPage';
 import { LoginPage } from './pages/LoginPage';
 import { Forbidden, ModulePlaceholder, NotFound } from './pages/SimplePages';
 
@@ -31,7 +33,8 @@ function Guard({ permission, children, anyScope }: { permission: Permission; chi
 }
 
 export default function App() {
-  const placeholders = NAV.filter((n) => n.phase > 1);
+  // Nav items no module has claimed yet show the "scheduled" page.
+  const placeholders = NAV.filter((n) => n.phase > 1 && !MODULE_ROUTES.some((r) => r.path.replace('/*', '') === n.path));
   return (
     <ToastProvider>
       <AuthProvider>
@@ -43,6 +46,8 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/accounting/*" element={<Guard permission="read.transactions"><JournalEntriesPage /></Guard>} />
               <Route path="/admin/*" element={<Guard permission="fiscalYear.manage" anyScope><AdminPage /></Guard>} />
+              <Route path="/reports/view/:code" element={<Guard permission="report.generate"><ReportViewerPage /></Guard>} />
+              {MODULE_ROUTES.map((r) => <Route key={r.path} path={r.path} element={<Guard permission={r.permission} anyScope={r.anyScope}>{r.element}</Guard>} />)}
               {placeholders.map((n) => <Route key={n.path} path={`${n.path}/*`} element={<ModulePlaceholder />} />)}
               <Route path="*" element={<NotFound />} />
             </Route>

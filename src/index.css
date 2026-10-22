@@ -46,3 +46,59 @@
   .kpi-value { @apply mt-1 text-2xl font-semibold tabular-nums text-navy-800; }
   .skeleton { @apply animate-pulse rounded bg-slate-200; }
 }
+
+/* ------------------------------------------------------------------ Reports (screen + print)
+   One renderer for every COA form/report. Print uses the browser's "Save as PDF". */
+@layer components {
+  .rpt { @apply mx-auto bg-white px-6 py-8 text-[12px] leading-snug text-black shadow-sm ring-1 ring-slate-200 sm:px-10; font-family: 'Arial', 'Helvetica', sans-serif; }
+  .rpt-portrait { max-width: 60rem; }
+  .rpt-landscape { max-width: 82rem; }
+  .rpt-header { @apply mb-4 text-center; }
+  .rpt-agency { @apply text-[12px]; }
+  .rpt-agency-main { @apply text-[13px] font-bold; }
+  .rpt-title { @apply mt-3 text-[15px] font-bold uppercase tracking-wide; }
+  .rpt-subtitle { @apply text-[12px]; }
+  .rpt-meta { @apply mb-3 grid gap-x-8 gap-y-0.5 sm:grid-cols-2; }
+  .rpt-meta div { @apply flex gap-2; }
+  .rpt-meta dt { @apply whitespace-nowrap font-semibold; }
+  .rpt-section { @apply mb-4 break-inside-auto; }
+  .rpt-section-title { @apply mb-1 text-[12px] font-bold; }
+  .rpt-table { @apply w-full border-collapse; }
+  .rpt-table th { @apply border border-black bg-slate-100 px-1.5 py-1 text-center align-bottom text-[11px] font-bold; }
+  .rpt-table th.rpt-group-empty { @apply border-b-0 bg-slate-100; }
+  .rpt-table td { @apply border border-black px-1.5 py-0.5 align-top; }
+  .rpt-num { @apply whitespace-nowrap text-right tabular-nums; }
+  .rpt-code { @apply whitespace-nowrap font-mono text-[11px]; }
+  .rpt-heading td { @apply font-bold; }
+  .rpt-subheading td { @apply font-semibold italic; }
+  .rpt-subtotal td { @apply font-semibold; border-top-width: 2px; }
+  .rpt-total td { @apply bg-slate-50 font-bold; border-top-width: 2px; }
+  .rpt-grandtotal td { @apply bg-slate-100 font-bold; border-top-width: 2px; border-bottom-width: 3px; border-bottom-style: double; }
+  .rpt-note td { @apply text-[11px] italic; }
+  .rpt-empty { @apply py-4 text-center italic text-slate-600; }
+  .rpt-fields { @apply grid gap-x-6 gap-y-2 border border-black p-2; }
+  .rpt-fields dt { @apply text-[10px] font-semibold uppercase; }
+  .rpt-fields dd { @apply min-h-[1.2em] border-b border-slate-400; }
+  .rpt-text p { @apply mb-2 text-justify; }
+  .rpt-certs { @apply grid gap-3 sm:grid-cols-2; }
+  .rpt-cert { @apply border border-black p-2; }
+  .rpt-cert-label { @apply text-[11px] font-bold; }
+  .rpt-cert-text { @apply mt-1 text-[11px]; }
+  .rpt-notes { @apply mb-3 list-disc pl-5 text-[11px]; }
+  .rpt-signatories { @apply mt-8 grid gap-8; }
+  .rpt-sign { @apply break-inside-avoid; }
+  .rpt-sign-label { @apply mb-8 text-[12px]; }
+  .rpt-sign-name { @apply mt-6 border-t border-black pt-0.5 text-center font-bold uppercase; }
+  .rpt-cert .rpt-sign-name { @apply mt-8; }
+  .rpt-sign-pos { @apply text-center text-[11px]; }
+  .rpt-sign-date { @apply mt-1 text-[11px]; }
+}
+
+@media print {
+  .no-print, header.sticky, #main-nav, [aria-live='polite'] { display: none !important; }
+  body, .min-h-screen { background: #fff !important; }
+  main { padding: 0 !important; }
+  .rpt { box-shadow: none !important; max-width: none !important; padding: 0 !important; --tw-ring-shadow: 0 0 #0000 !important; }
+  .rpt-table thead { display: table-header-group; }
+  .rpt-table tr { break-inside: avoid; }
+}
