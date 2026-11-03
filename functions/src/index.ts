@@ -6,6 +6,7 @@
 export { createUserAccount, setUserAssignment, revokeUserAssignment, setUserActive, recordLogin } from './security/users';
 export { onUserAssignmentWritten, resyncDatedAssignments } from './security/claims';
 export { seedReferenceData } from './admin/seed';
+export { setAllowSelfPost } from './admin/settings';
 export {
   createFiscalYear,
   openBarangayFiscalYear,

@@ -19,6 +19,8 @@ export const api = {
   setUserAssignment: call<{ uid: string; barangayId: BarangayScope; roles: RoleCode[]; validFrom?: string; validTo?: string | null; remarks?: string }, { assignmentId: string }>('setUserAssignment'),
   revokeUserAssignment: call<{ assignmentId: string; reason: string }, { ok: true }>('revokeUserAssignment'),
   setUserActive: call<{ uid: string; active: boolean; reason: string }, { ok: true }>('setUserActive'),
+  setAllowSelfPost: call<{ allow: boolean; reason: string }, { allowSelfPost: boolean }>('setAllowSelfPost'),
+  recordCancelledCheck: call<{ barangayId: BarangayId; bankAccountId: string; checkNumber: string; checkDate: string; payeeName?: string | null; remarks?: string }, { id: string }>('recordCancelledCheck'),
   seedReferenceData: call<{ overwriteCatalogs?: boolean }, { created: Record<string, number> }>('seedReferenceData'),
   createFiscalYear: call<{ fiscalYear: number }, { fiscalYear: number }>('createFiscalYear'),
   openBarangayFiscalYear: call<{ barangayId: BarangayId; fiscalYear: number }, { ok: true }>('openBarangayFiscalYear'),
