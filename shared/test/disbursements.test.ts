@@ -128,14 +128,9 @@ describe('Report of Checks Issued / Cancelled Checks', () => {
     signatories: [],
     checks: [chk('1762251', '2026-03-05', 5_000, 'CANCELLED', { cancelReason: 'Spoiled', cancelledDate: '2026-03-06' }), chk('1762250', '2026-03-02', 10_000), chk('1762252', '2026-03-09', 7_500, 'RELEASED'), chk('1762249', '2026-02-27', 1_000)],
   });
-  it('lists every check number of the month in order, cancelled at zero', async () => {
+  it('Report of Checks Issued reads the journal, not checks documents (journal cases: bank.test.ts)', async () => {
     const m = await runReport(reportBuilder('CHECKS_ISSUED')!, ds, { barangayId: 'AGBOY', fiscalYear: 2026, month: 3 });
-    const t = m.sections[0]!;
-    if (t.kind !== 'table') throw new Error('table expected');
-    expect(t.rows.map((r) => r.cells.checkNo)).toEqual(['1762250', '1762251', '1762252', undefined]);
-    expect(t.rows[1]!.cells.amount).toBeNull();
-    expect(t.rows.at(-1)!.cells.amount).toBe(17_500);
-    expect(m.isEmpty).toBe(false);
+    expect(m.isEmpty).toBe(true);
   });
   it('cancelled checks report and empty month', async () => {
     const m = await runReport(reportBuilder('CANCELLED_CHECKS')!, ds, { barangayId: 'AGBOY', fiscalYear: 2026, month: 3 });

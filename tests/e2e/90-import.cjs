@@ -1,5 +1,5 @@
 // Legacy workbook import — a small SYNTHETIC workbook (fake names) parsed by the shared parser and
-// imported through the import callables into HABA 2026: SL master, opening (period 00), journal,
+// imported through the import callables into PAYAUAN 2026: SL master, opening (period 00), journal,
 // prior-year TB, legacy CA list, PPE schedule, cancelled checks. Asserts JEV numbers follow the
 // dates, the TB balances, an unbalanced entry is rejected (reported, not imported) and a second
 // import of the journal / opening is refused.
@@ -15,7 +15,7 @@ buildSync({
 });
 const P = require(out);
 
-const B = 'HABA';
+const B = 'PAYAUAN';
 const FY = 2026;
 const D = (s) => new Date(`${s}T00:00:00Z`);
 let failed = 0;
@@ -25,7 +25,7 @@ const HDR = ['Primary Reference', 'Account Code', 'SL', 'Account Name', 'P', 'De
 const row = (o) => [o.p ?? null, o.a ?? null, o.sl ?? null, null, null, o.dr ?? null, o.cr ?? null, o.jev ?? null, o.n ?? null, o.s ?? null, o.t ?? null, o.d ? D(o.d) : null, o.part ?? null, o.tt ?? null, o.m ?? null];
 
 const sheets = {
-  'TO DO LISTS': [['BARANGAY HABA'], ['Check the ₱10 difference']],
+  'TO DO LISTS': [['BARANGAY PAYAUAN'], ['Check the ₱10 difference']],
   ACODE: [
     ['Account Code', 'Account Name', 'Normal Balance', null, 'Active Codes', null, null, 'Month Codes', null, null, 'All SL Codes'],
     ['1-01-01-010', 'Cash - In Local Treasury', 'Debit', null, null, null, null, 'January', '01', null, '1-01-01-010', 'BT01', 'JUAN T. DELA CRUZ'],
@@ -64,8 +64,8 @@ const sheets = {
     row({ p: '1000104', a: '5-02-04-020', dr: 1000, n: 'POWER COOP', s: '2026-03-001', d: '2026-03-05', part: 'Electricity', tt: 'Disbursement Voucher', m: '03' }),
     row({ p: '1000104', a: '1-01-02-010', sl: 'CIB01', cr: 990, n: 'POWER COOP', s: '2026-03-001', d: '2026-03-05', part: 'Electricity', tt: 'Disbursement Voucher', m: '03' }),
     // month column disagrees with the date (warning only)
-    row({ p: 'BS', a: '1-01-02-010', sl: 'CIB01', dr: 100000, n: 'BRGY HABA', s: 'BS', d: '2026-03-01', part: 'Record NTA', tt: 'Others', m: '02' }),
-    row({ p: 'BS', a: '4-01-04-010', cr: 100000, n: 'BRGY HABA', s: 'BS', d: '2026-03-01', part: 'Record NTA', tt: 'Others', m: '02' }),
+    row({ p: 'BS', a: '1-01-02-010', sl: 'CIB01', dr: 100000, n: 'BRGY PAYAUAN', s: 'BS', d: '2026-03-01', part: 'Record NTA', tt: 'Others', m: '02' }),
+    row({ p: 'BS', a: '4-01-04-010', cr: 100000, n: 'BRGY PAYAUAN', s: 'BS', d: '2026-03-01', part: 'Record NTA', tt: 'Others', m: '02' }),
     [null, null, null, "Prior Years' Adjustments"], // template residue
   ],
   '02.2_PRETB_3Y': [
@@ -76,7 +76,7 @@ const sheets = {
     ['3-01-01-010', 'Credit', 'Accumulated Surplus', 0, 0, 0, 251500.5, 0, 201000],
   ],
   'List of Unliquidated Advances': [
-    ['BARANGAY HABA'],
+    ['BARANGAY PAYAUAN'],
     ['DATE', 'REF', 'ACCOUNT NAME', 'ACCOUNT CODE', 'CHECK', 'NAME', 'PARTICULARS', 'AMOUNT'],
     [D('2024-05-10'), '2024-05-011', 'Payroll Fund', 106, 900001, 'Pedro Penduko', 'CA honoraria', 10000],
     [D('2025-03-02'), '2025-03-020', 'Advances for Payroll', '1-03-03-010', 900002, 'PEDRO M. PENDUKO', 'CA labor payroll', 2000],
@@ -90,13 +90,13 @@ const sheets = {
 };
 
 (async () => {
-  console.log('Legacy workbook import (synthetic workbook → HABA 2026)');
+  console.log('Legacy workbook import (synthetic workbook → PAYAUAN 2026)');
   const ma = await as('ma@test.local'), ar = await as('ar@test.local');
-  await expectOk('open HABA 2026', ma('openBarangayFiscalYear', { barangayId: B, fiscalYear: FY }).catch((e) => { if (/already|exist/i.test(e.message)) return; throw e; }));
-  await expectOk('bank account (CIB01) registered first', ma('saveBankAccount', { barangayId: B, bankName: 'Sample Rural Bank', branch: 'Candoni', accountName: 'BRGY HABA GF', accountNumber: '9990001', accountType: 'CURRENT', fundId: 'GF', subsidiaryCode: 'CIB01', active: true }));
+  await expectOk('open PAYAUAN 2026', ma('openBarangayFiscalYear', { barangayId: B, fiscalYear: FY }).catch((e) => { if (/already|exist/i.test(e.message)) return; throw e; }));
+  await expectOk('bank account (CIB01) registered first', ma('saveBankAccount', { barangayId: B, bankName: 'Sample Rural Bank', branch: 'Candoni', accountName: 'BRGY PAYAUAN GF', accountNumber: '9990001', accountType: 'CURRENT', fundId: 'GF', subsidiaryCode: 'CIB01', active: true }));
 
   // ---- Parse
-  const w = P.parseWorkbook(sheets, { title: 'HABA synthetic' });
+  const w = P.parseWorkbook(sheets, { title: 'PAYAUAN synthetic' });
   check('barangay guessed', w.barangayGuess === B, w.barangayGuess);
   check('fiscal year from PY DB', w.fiscalYear === FY, String(w.fiscalYear));
   check('opening balanced (negative debit → credit)', w.opening && w.opening.balanced && w.opening.totalDebit === 32350050, JSON.stringify(w.opening && [w.opening.totalDebit, w.opening.totalCredit]));
@@ -118,7 +118,7 @@ const sheets = {
   await expectFail('AR cannot start an import (import.approve)', ar('importBegin', { barangayId: B, fiscalYear: FY, parts, fingerprint }), /permission/i);
 
   // ---- Import as the Municipal Accountant
-  const begin = await expectOk('MA importBegin', ma('importBegin', { barangayId: B, fiscalYear: FY, parts, fingerprint, sourceTitle: 'HABA synthetic', counts: { entries: w.entries.length } }));
+  const begin = await expectOk('MA importBegin', ma('importBegin', { barangayId: B, fiscalYear: FY, parts, fingerprint, sourceTitle: 'PAYAUAN synthetic', counts: { entries: w.entries.length } }));
   const importId = begin && begin.importId;
   const subs = await expectOk('importSubsidiaries', ma('importSubsidiaries', { importId, subsidiaries: w.subsidiaries.map(({ source, ...s }) => s) }));
   check('4 SLs created, CIB01 kept (bank account)', subs && subs.created === 4 && subs.skipped.length === 1, JSON.stringify(subs));

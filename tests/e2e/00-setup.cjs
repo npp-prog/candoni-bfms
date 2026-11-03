@@ -16,6 +16,6 @@ const { ensureUser, as, expectOk, done } = require('./lib.cjs');
   await expectOk('collecting officer BT01', bt('saveSubsidiaryAccount', { barangayId: 'AGBOY', accountCode: '1-01-01-010', subsidiaryCode: 'BT01', subsidiaryName: 'Teresa Bautista, Barangay Treasurer', type: 'ACCOUNTABLE_OFFICER', active: true }));
   for (const [role, name, pos] of [['PUNONG_BARANGAY', 'PEDRO B. BELMONTE', 'Punong Barangay'], ['BARANGAY_TREASURER', 'TERESA C. BAUTISTA', 'Barangay Treasurer'], ['APPROPRIATIONS_CHAIR', 'CARLOS D. AQUINO', 'Chairperson, Committee on Appropriations']])
     await expectOk(`signatory ${role}`, bt('saveSignatory', { barangayId: 'AGBOY', role, name, position: pos, validFrom: '2023-11-30', validTo: null, active: true }));
-  await expectOk('municipal accountant signatory', ma('saveSignatory', { barangayId: 'MUNICIPAL', role: 'MUNICIPAL_ACCOUNTANT', name: 'NEIL P. PRIOLO, CPA', position: 'Municipal Accountant', validFrom: '2020-01-01', validTo: null, active: true }));
+  await expectOk('municipal accountant signatory', ma('saveSignatory', { barangayId: 'MUNICIPAL', role: 'MUNICIPAL_ACCOUNTANT', name: 'JUAN A. DELA CRUZ, CPA', position: 'Municipal Accountant', validFrom: '2020-01-01', validTo: null, active: true }));
   done();
 })();

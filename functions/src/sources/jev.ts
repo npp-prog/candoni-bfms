@@ -8,6 +8,7 @@ import {
   type JournalEntryDoc,
   type JournalLineDoc,
   type SourceModule,
+  type TransactionType,
 } from '@bfms/shared';
 import type { Transaction } from 'firebase-admin/firestore';
 import { db, Timestamp } from '../lib/admin';
@@ -30,6 +31,8 @@ export interface GeneratedJev {
   secondaryReference?: string | null;
   tertiaryReference?: string | null;
   payeeName?: string | null;
+  /** Legacy CY DB transaction type of the generated entry. */
+  transactionType?: TransactionType | null;
   lines: GeneratedJevLine[];
 }
 
@@ -90,6 +93,8 @@ export function createGeneratedJev(
     lineCount: lines.length,
     reversesJevId: null,
     reversedByJevId: null,
+    transactionType: jev.transactionType ?? null,
+    payeeName: jev.payeeName ?? null,
     status: 'DRAFT',
     revisionNumber: 0,
     createdAt: now,
