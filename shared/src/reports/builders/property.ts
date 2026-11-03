@@ -1,12 +1,13 @@
 import { lastDayOfMonth } from '../../accounting/periods';
 import { roundQty, stockCardBalances } from '../../accounting/property';
+import { depreciationJevLines } from '../../accounting/schedules';
+import { loadPpeSchedule } from '../../accounting/schedulesData';
 import { monthlyDepreciation } from '../../accounting/statements';
 import {
   DISPOSAL_MODES,
   ITEM_CLASSES,
   PROPERTY_COL,
   type BiologicalAssetDoc,
-  type DepreciationRunDoc,
   type InspectionReportDoc,
   type InventoryItemRecord,
   type InventoryTxRecord,
@@ -20,7 +21,7 @@ import {
 } from '../../modules/property';
 import type { ReportBuilder, ReportContext } from '../context';
 import type { WithId } from '../datasource';
-import { inRange, peso, postedLines } from '../helpers';
+import { inRange, peso } from '../helpers';
 import { col, longDate, row, table, validation, type CertificationsSection, type FieldsSection, type ReportRow, type ReportSection, type ReportSignatory, type TableSection } from '../model';
 
 /**
@@ -949,82 +950,102 @@ const IIRUP: ReportBuilder = {
   },
 };
 
+/**
+ * PPE Depreciation Schedule (legacy "PPE Depreciation Schedule" / "PPE Depr"): one row per PPE
+ * account with a GL balance — cost (GL at Dec 31 unless overridden in ppeSchedules), residual
+ * value, depreciable amount, life, depreciation expense — then the depreciation JEV recap
+ * (Dr 5-04-01-0x0 / Cr 1-07-xx-xx1). Validator: depreciation recorded in the GL = the schedule.
+ */
 const PPE_DEPRECIATION: ReportBuilder = {
   code: 'PPE_DEPRECIATION',
   params: 'YEAR',
   async build(ctx) {
     const fy = ctx.params.fiscalYear;
-    const bid = ctx.params.barangayId;
-    const all = await ctx.ds.list<PpeRecord>('ppe', [['barangayId', '==', bid]]);
-    const list = all
-      .filter((p) => ['ACTIVE', 'UNSERVICEABLE', 'DISPOSED', 'TRANSFERRED'].includes(p.status) && p.acquisitionDate <= ctx.range.to && !(p.disposalDate && p.disposalDate < ctx.range.from) && p.accumulatedDepreciationAccountCode)
-      .sort((a, b) => a.accountCode.localeCompare(b.accountCode) || a.propertyNumber.localeCompare(b.propertyNumber));
-    const deps = (await ctx.ds.list<PpeDepreciationDoc>('ppeDepreciation', [['barangayId', '==', bid]])).filter((d) => d.fiscalYear <= fy);
-    const byPpe = new Map<string, PpeDepreciationDoc[]>();
-    for (const d of deps) byPpe.set(d.ppeId, [...(byPpe.get(d.ppeId) ?? []), d]);
+    const v = await loadPpeSchedule(ctx.ds, ctx.params.barangayId, fy, null);
     const accounts = await ctx.accounts();
-    const rows: ReportRow[] = [];
-    const grand = { cost: 0, residual: 0, monthly: 0, beginning: 0, thisYear: 0, end: 0, nbv: 0 };
-    const perContra = new Map<string, number>();
-    for (const code of [...new Set(list.map((p) => p.accountCode))]) {
-      rows.push(row({ propertyNumber: code, description: accounts.get(code)?.accountName ?? code }, 'heading'));
-      const sub = { cost: 0, residual: 0, monthly: 0, beginning: 0, thisYear: 0, end: 0, nbv: 0 };
-      for (const p of list.filter((x) => x.accountCode === code)) {
-        const y = ppeYear(p, byPpe.get(p.id) ?? [], fy);
-        const monthly = monthlyDepreciation(p.acquisitionCost, p.residualValue, p.usefulLifeYears);
-        const r = { cost: p.acquisitionCost, residual: p.residualValue, monthly, beginning: y.beginning, thisYear: y.thisYear, end: y.end, nbv: p.acquisitionCost - y.end };
-        rows.push(row({ propertyNumber: p.propertyNumber, description: p.description, acquired: p.acquisitionDate, life: p.usefulLifeYears, ...r }, 'normal', 1));
-        for (const k of Object.keys(sub) as Array<keyof typeof sub>) sub[k] += r[k];
-        perContra.set(p.accumulatedDepreciationAccountCode, (perContra.get(p.accumulatedDepreciationAccountCode) ?? 0) + y.end);
-      }
-      rows.push(row({ description: `Total ${accounts.get(code)?.accountName ?? code}`, ...sub }, 'subtotal'));
-      for (const k of Object.keys(grand) as Array<keyof typeof grand>) grand[k] += sub[k];
-    }
-    rows.push(row({ description: 'GRAND TOTAL', ...grand }, 'grandtotal'));
-
-    // Tie-out: schedule accumulated depreciation per contra account vs posted GL balances (1-07-xx-xx1).
-    const lines = await postedLines(ctx);
-    const gl = new Map<string, number>();
-    for (const l of lines) if (perContra.has(l.accountCode)) gl.set(l.accountCode, (gl.get(l.accountCode) ?? 0) + l.credit - l.debit);
-    const tie = table(
-      [col('account', 'Accumulated depreciation account', 'code'), col('name', 'Account title', 'text', { width: 3 }), col('schedule', 'Per schedule', 'money'), col('gl', 'Per General Ledger (posted)', 'money'), col('diff', 'Difference', 'money')],
-      [...perContra.entries()].sort().map(([a, v]) => row({ account: a, name: accounts.get(a)?.accountName ?? a, schedule: v, gl: gl.get(a) ?? 0, diff: v - (gl.get(a) ?? 0) })),
-      { title: 'Reconciliation with the General Ledger' },
+    const name = (c: string) => accounts.get(c)?.accountName ?? c;
+    const rows: ReportRow[] = v.rows.map((r) =>
+      row({
+        code: r.accountCode,
+        account: name(r.accountCode),
+        cost: r.cost,
+        rate: r.residualRateBp / 100,
+        residual: r.residualValue,
+        depreciable: r.depreciableAmount,
+        life: r.usefulLifeYears,
+        expense: r.periodDepreciation,
+        accBefore: r.accumulatedBefore,
+        accEnd: r.accumulatedEnd,
+        nbv: r.netBookValue,
+      }),
     );
-    const mismatches = [...perContra.entries()].filter(([a, v]) => v !== (gl.get(a) ?? 0)).length;
-    const runs = await ctx.ds.list<DepreciationRunDoc>(PROPERTY_COL.depreciationRuns, ctx.scope());
+    const tot = (k: keyof (typeof v.rows)[number]) => v.rows.reduce((t, r) => t + (r[k] as number), 0);
+    if (rows.length)
+      rows.push(row({ account: 'TOTAL', cost: tot('cost'), residual: tot('residualValue'), depreciable: tot('depreciableAmount'), expense: tot('periodDepreciation'), accBefore: tot('accumulatedBefore'), accEnd: tot('accumulatedEnd'), nbv: tot('netBookValue') }, 'grandtotal'));
+    const recap = depreciationJevLines(v.rows);
+    const scheduleExpense = new Map(recap.filter((l) => l.debit > 0).map((l) => [l.accountCode, l.debit as number]));
+    const expCodes = [...new Set([...scheduleExpense.keys(), ...[...v.expenseRecorded.entries()].filter(([, x]) => x !== 0).map(([c]) => c)])].sort();
+    const recapRows: ReportRow[] = [
+      ...recap.map((l) => row({ code: l.accountCode, account: name(l.accountCode), debit: l.debit || null, credit: l.credit || null }, 'normal', l.credit ? 1 : 0)),
+      ...(recap.length ? [row({ account: 'TOTAL', debit: recap.reduce((t, l) => t + l.debit, 0), credit: recap.reduce((t, l) => t + l.credit, 0) }, 'total')] : []),
+    ];
+    const tie = expCodes.map((c) => ({ c, schedule: scheduleExpense.get(c) ?? 0, gl: v.expenseRecorded.get(c) ?? 0 }));
+    const totalSchedule = tie.reduce((t, x) => t + x.schedule, 0);
+    const totalGl = tie.reduce((t, x) => t + x.gl, 0);
+    const mismatches = tie.filter((x) => x.schedule !== x.gl);
+    const runs = await ctx.ds.list<{ period?: string; jevNumber?: string | null; kind?: string }>('depreciationRuns', ctx.scope());
     return {
       subtitle: [ctx.range.label],
-      meta: [{ label: 'Fund', value: 'General Fund' }, { label: 'Depreciation runs', value: runs.map((r) => r.period.slice(5)).sort().join(', ') || 'none' }],
+      meta: [
+        { label: 'Fund', value: 'General Fund' },
+        { label: 'Method', value: 'Straight-line' },
+        { label: 'Depreciation entries', value: runs.map((r) => `${r.period ?? ''}${r.jevNumber ? ` (JEV ${r.jevNumber})` : ' (not posted)'}`).sort().join(', ') || 'none generated' },
+      ],
       sections: [
         table(
           [
-            col('propertyNumber', 'Property No.', 'code'),
-            col('description', 'Description', 'text', { width: 3 }),
-            col('acquired', 'Date Acquired', 'date'),
-            col('cost', 'Acquisition Cost', 'money'),
+            col('code', 'Account Code', 'code'),
+            col('account', 'Account Name', 'text', { width: 3 }),
+            col('cost', 'Cost', 'money'),
+            col('rate', 'Residual %', 'percent'),
             col('residual', 'Residual Value', 'money'),
-            col('life', 'Useful Life (yrs)', 'number'),
-            col('monthly', 'Monthly Depreciation', 'money'),
-            col('beginning', 'Beginning', 'money', { group: 'Accumulated Depreciation' }),
-            col('thisYear', 'This Year', 'money', { group: 'Accumulated Depreciation' }),
-            col('end', 'End of Year', 'money', { group: 'Accumulated Depreciation' }),
+            col('depreciable', 'Depreciable Amount', 'money'),
+            col('life', 'Life (yrs)', 'number'),
+            col('expense', 'Depreciation Expense', 'money'),
+            col('accBefore', 'Beginning', 'money', { group: 'Accumulated Depreciation (GL)' }),
+            col('accEnd', 'End of Year', 'money', { group: 'Accumulated Depreciation (GL)' }),
             col('nbv', 'Net Book Value', 'money'),
           ],
           rows,
+          { emptyText: 'No depreciable PPE accounts with a balance this year.' },
         ),
-        tie,
+        table([col('code', 'Account Code', 'code'), col('account', 'Account Title', 'text', { width: 3 }), col('debit', 'Debit', 'money'), col('credit', 'Credit', 'money')], recapRows, {
+          title: `Journal entry — to record depreciation of PPE for ${fy}`,
+          emptyText: 'No depreciation for the year.',
+        }),
+        table(
+          [col('code', 'Expense Account', 'code'), col('account', 'Account Title', 'text', { width: 3 }), col('schedule', 'Per schedule', 'money'), col('gl', 'Recorded in GL (posted)', 'money'), col('diff', 'Difference', 'money')],
+          [...tie.map((x) => row({ code: x.c, account: name(x.c), schedule: x.schedule, gl: x.gl, diff: x.schedule - x.gl || null })), row({ account: 'TOTAL', schedule: totalSchedule, gl: totalGl, diff: totalSchedule - totalGl || null }, 'total')],
+          { title: 'Depreciation recorded in the General Ledger (5-04-01)' },
+        ),
       ],
       signatories: [ctx.sign('Prepared by', 'MUNICIPAL_ACCOUNTANT')],
       validations: [
         validation(
-          'PPE_TIES_TO_GL',
-          mismatches === 0 ? true : 'WARNING',
-          mismatches === 0 ? 'Accumulated depreciation per schedule agrees with the posted General Ledger.' : `${mismatches} accumulated depreciation account(s) differ from the posted GL (unposted depreciation JEVs or opening balances not yet entered).`,
+          'PPE_DEPRECIATION_RECORDED',
+          mismatches.length === 0 ? true : totalGl === 0 ? 'WARNING' : false,
+          mismatches.length === 0
+            ? 'Depreciation recorded in the GL (5-04-01) equals the schedule.'
+            : totalGl === 0
+              ? `No depreciation recorded in the GL yet; the schedule computes ${peso(totalSchedule)}. Generate and post the depreciation JEV.`
+              : `${mismatches.length} depreciation expense account(s) differ from the schedule (GL ${peso(totalGl)} vs schedule ${peso(totalSchedule)}).`,
         ),
       ],
-      notes: ['Straight-line method: (acquisition cost − residual value) ÷ useful life in months; residual value 5% of cost unless stated. Depreciation starts the month of acquisition when acquired on or before the 15th, otherwise the following month.'],
-      isEmpty: list.length === 0,
+      notes: [
+        'Straight-line: depreciable amount = cost − residual value; annual depreciation = depreciable amount ÷ useful life. Depreciation stops when accumulated depreciation reaches the depreciable amount.',
+        'Cost is the General Ledger balance of the asset account at year end unless an override is entered in the schedule. Land and construction in progress are not depreciated.',
+      ],
+      isEmpty: v.rows.length === 0,
     };
   },
 };
