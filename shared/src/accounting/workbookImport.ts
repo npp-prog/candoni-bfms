@@ -254,7 +254,17 @@ export function cellDate(v: unknown): { date: string | null; note?: string } {
 }
 
 function norm(s: string): string {
-  return s.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length]!;
 }
 
 /** Find a header row within the first `scan` rows that has every `required` column. */
@@ -863,7 +873,9 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
     return nameToCode.get(norm(name)) ?? null;
   };
   const tokens = (s: string) => norm(s).split(' ').filter((t) => t.length > 1 && !['jr', 'sr', 'ii', 'iii', 'hon'].includes(t));
+  let lastSlGuess: string | null = null;
   const officerSl = (accountCode: string, officer: string): string | null => {
+    lastSlGuess = null;
     const want = tokens(officer);
     if (!want.length) return null;
     const cands = subsidiaries.filter((s) => s.accountCode === accountCode);
@@ -876,7 +888,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
       const t = tokens(s.subsidiaryName);
       return t[0] === want[0] && t[t.length - 1] === want[want.length - 1];
     });
-    return fl.length === 1 ? fl[0]!.subsidiaryCode : null;
+    if (fl.length === 1) return fl[0]!.subsidiaryCode;
+    // First name and surname each off by a small typo (SHIELA / SHEILA, CAMNCHO / CAMANCHO).
+    const near = cands.filter((s) => {
+      const t = tokens(s.subsidiaryName);
+      return t.length > 0 && editDistance(t[0]!, want[0]!) <= 2 && editDistance(t[t.length - 1]!, want[want.length - 1]!) <= 2;
+    });
+    if (near.length !== 1) return null;
+    lastSlGuess = `${near[0]!.subsidiaryCode} ${near[0]!.subsidiaryName}`;
+    return near[0]!.subsidiaryCode;
   };
   const caSpec = {
     date: /^date$/i,
@@ -909,6 +929,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
         if (caSeen.has(k)) continue;
         caSeen.add(k);
         const slc = officerSl(account, s.ca.officerName);
+        if (lastSlGuess) issue('WARNING', sheet, s.row, 'CA_SL_GUESSED', `Cash advance of ${s.ca.officerName} (${peso(s.ca.amount)}) matched to ${account} ${lastSlGuess} by similar spelling; check that it is the same person.`);
         legacyCashAdvances.push({ ...s.ca, accountCode: account, subsidiaryCode: slc });
       }
       section = [];

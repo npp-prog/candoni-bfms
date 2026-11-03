@@ -250,11 +250,11 @@ function ItemRow({ i, legacy, editable, onEdit, onDelete }: { i: CaScheduleItem;
     <tr className={i.outstanding < 0 ? 'text-red-800' : undefined}>
       <td>{i.checkNumber}</td>
       <td className="whitespace-nowrap">{i.date}</td>
-      <td>{i.dvNumber}</td>
-      <td className="font-mono text-xs">{i.accountCode}</td>
-      <td>
+      <td className="whitespace-nowrap">{i.dvNumber}</td>
+      <td className="whitespace-nowrap font-mono text-xs">{i.accountCode}</td>
+      <td className="min-w-[14rem]">
         {i.particulars}
-        {tag && <span className="ml-1 rounded bg-slate-100 px-1 text-[11px] text-slate-600">{tag}</span>}
+        {tag && <span className="ml-1 whitespace-nowrap rounded bg-slate-100 px-1 text-[11px] text-slate-600">{tag}</span>}
       </td>
       <td className="text-right"><Money value={i.amount} dashZero={false} /></td>
       <td className="text-right" title={i.applications.map((a) => `${a.date} ${a.jevNumber ?? ''} ${formatPesos(a.amount)}${a.targeted ? ' (named)' : ''}`).join('\n') || undefined}><Money value={i.applied} /></td>

@@ -115,6 +115,7 @@ describe('parseWorkbook', () => {
         ['CHECK NO', 'DATE', 'DV NO', 'ACCOUNT NAME', 'AO', 'PARTICULARS', 'OLD CODE', 'NEW CODE', 'AMOUNT'],
         [111, D('2019-01-02'), '2019-01-001', 'ADVANCES TO OFFICERS & EMPLOYEES', 'Jose Rizal', 'Travel', 148, null, 1500],
         [112, D('2019-02-02'), null, null, 'JOSE P. RIZAL', 'Seminar', null, null, 500],
+        [114, D('2019-03-02'), null, null, 'JOSÉ RISAL', 'Typo in surname', null, null, 10],
         [null, null, null, null, 'Sub Total', null, null, null, 2000],
         [113, D('2020-02-02'), null, 'Due from Officers and Employees', 'Unknown Person', 'Excess', 'N/A', '1-03-04-020', 75.5],
         [null, null, null, null, 'Grand total', null, null, null, 2075.5],
@@ -199,10 +200,12 @@ describe('parseWorkbook', () => {
   });
 
   it('reads the legacy CA list with section accounts and officer SL matching', () => {
-    expect(w.legacyCashAdvances).toHaveLength(3);
+    expect(w.legacyCashAdvances).toHaveLength(4);
     expect(w.legacyCashAdvances[0]).toMatchObject({ accountCode: '1-03-03-020', subsidiaryCode: 'EO01', checkNumber: '111', dvNumber: '2019-01-001', amount: 150000 });
     expect(w.legacyCashAdvances[1]).toMatchObject({ accountCode: '1-03-03-020', subsidiaryCode: 'EO01', amount: 50000 });
-    expect(w.legacyCashAdvances[2]).toMatchObject({ accountCode: '1-03-04-020', subsidiaryCode: null, amount: 7550 });
+    expect(w.legacyCashAdvances[2]).toMatchObject({ accountCode: '1-03-03-020', subsidiaryCode: 'EO01', amount: 1000 });
+    expect(issue('CA_SL_GUESSED')).toHaveLength(1);
+    expect(w.legacyCashAdvances[3]).toMatchObject({ accountCode: '1-03-04-020', subsidiaryCode: null, amount: 7550 });
   });
 
   it('reads the last PPE block with defaults and warnings', () => {

@@ -181,7 +181,7 @@ export function PpeSchedulePage() {
             <tbody>
               {computed.map((r, i) => (
                 <tr key={r.accountCode}>
-                  <td><span className="font-mono text-xs">{r.accountCode}</span><br /><span className="text-xs">{name(r.accountCode)}</span></td>
+                  <td className="min-w-[11rem]"><span className="font-mono text-xs">{r.accountCode}</span><br /><span className="text-xs">{name(r.accountCode)}</span></td>
                   <td className="text-right"><Money value={r.glCost} /></td>
                   <td className="min-w-[9rem]">
                     {editable ? (
@@ -201,7 +201,7 @@ export function PpeSchedulePage() {
                   <td className="text-right font-medium" title={r.capped ? 'Capped: the asset reaches its depreciable amount' : undefined}><Money value={r.periodDepreciation} />{r.capped && <span className="ml-1 text-[11px] text-amber-800">cap</span>}</td>
                   <td className="text-right"><Money value={r.accumulatedEnd} /></td>
                   <td className="text-right"><Money value={r.netBookValue} /></td>
-                  <td className="min-w-[12rem]">
+                  <td className="min-w-[22rem]">
                     {editable ? (
                       <div className="grid gap-1">
                         <AccountInput aria-label={`Accumulated depreciation account ${r.accountCode}`} prefixes={['1-07-']} value={r.accumulatedAccountCode} onChange={(c) => update(i, { accumulatedAccountCode: c })} />

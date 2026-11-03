@@ -22,7 +22,7 @@ let failures = 0;
       const m: ReportModel = await runReport(b, ds, params as never);
       const rows = m.sections.reduce((t, s) => t + (s.kind === 'table' ? s.rows.length : 0), 0);
       console.log(`  ${code.padEnd(20)} sections=${m.sections.length} rows=${rows} empty=${m.isEmpty} sig=${m.signatories.map((s) => s.name || '(blank)').join('|')} ${m.validations.map((v) => `${v.id}:${v.result}`).join(' ')}`);
-      if (process.env.DUMP === code) console.log(JSON.stringify(m, null, 1).slice(0, 6000));
+      if (process.env.DUMP === code) console.log(JSON.stringify(m, null, 1).slice(0, Number(process.env.DUMP_LIMIT ?? 6000)));
     } catch (e) {
       failures++;
       console.log(`  ${code.padEnd(20)} ERROR ${(e as Error).message}`);

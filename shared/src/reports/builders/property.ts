@@ -1038,7 +1038,9 @@ const PPE_DEPRECIATION: ReportBuilder = {
             ? 'Depreciation recorded in the GL (5-04-01) equals the schedule.'
             : totalGl === 0
               ? `No depreciation recorded in the GL yet; the schedule computes ${peso(totalSchedule)}. Generate and post the depreciation JEV.`
-              : `${mismatches.length} depreciation expense account(s) differ from the schedule (GL ${peso(totalGl)} vs schedule ${peso(totalSchedule)}).`,
+              : totalGl === totalSchedule
+                ? `Total depreciation agrees (${peso(totalGl)}) but ${mismatches.length} expense account(s) are classified differently from the schedule (${mismatches.map((m) => m.c).join(', ')}). Reclassify with an adjusting entry.`
+                : `${mismatches.length} depreciation expense account(s) differ from the schedule (GL ${peso(totalGl)} vs schedule ${peso(totalSchedule)}).`,
         ),
       ],
       notes: [
