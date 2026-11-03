@@ -269,6 +269,10 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------ SERVER-ONLY (read scoped, never client-written)
+    match /legacyBalances/{id}         { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /legacyCashAdvances/{id}     { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /ppeSchedules/{id}           { allow read: if resource == null && hasAnyAssignment() || resource != null && canReadScopedNoStatus(resource.data); allow write: if false; }
+    match /cancelledChecks/{id}        { allow read: if canReadScopedNoStatus(resource.data); allow write: if false; }
     match /checks/{id}                 { allow read: if canReadScoped(resource.data);        allow write: if false; }
     match /adas/{id}                   { allow read: if canReadScoped(resource.data);        allow write: if false; }
     match /accountableForms/{id}       { allow read: if canReadScoped(resource.data);        allow write: if false; }

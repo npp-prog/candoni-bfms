@@ -1,4 +1,5 @@
 import type { JevStatus } from '../constants/statuses';
+import type { TransactionType } from '../constants/transactionTypes';
 import type { BarangayId, Centavos, FundId, IsoDate, PeriodKey, PeriodScoped, Ts, WorkflowTracked } from './common';
 
 export type JournalBook = 'JCT' | 'GJ';
@@ -41,6 +42,10 @@ export interface JournalEntryDoc extends PeriodScoped, WorkflowTracked<JevStatus
   lineCount: number; // server
   reversesJevId: string | null;
   reversedByJevId: string | null;
+  /** Legacy CY DB "Transaction Type" (Disbursement Voucher, Collections, …). */
+  transactionType?: TransactionType | null;
+  /** Payee / payor / accountable officer ("Name" column of the legacy journal). */
+  payeeName?: string | null;
 }
 
 /** journalEntries/{jevId}/lines/{lineId} — denormalized for collection-group GL/SL queries. */

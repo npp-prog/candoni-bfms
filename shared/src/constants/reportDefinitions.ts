@@ -101,6 +101,7 @@ const ROWS: Row[] = [
   ['NFS', 50, 'Notes to Financial Statements', 'FINANCIAL_STATEMENTS', 'MUNICIPAL_ACCOUNTING', MA, MA, null, 'ANNUAL', ['nfsNarratives', 'accountBalances'], false, 'HYBRID', P(), [], 11],
   // Supplementary schedules
   ['TB', null, 'Trial Balance (Monthly / Pre-Closing / Post-Closing)', 'SCHEDULES', 'MUNICIPAL_ACCOUNTING', MA, MA, null, 'MONTHLY', ['accountBalances'], false, 'AUTO', P(), ['TB_BALANCED'], 8],
+  ['TB_3Y', null, 'Pre-Closing Trial Balance (3-Year Comparative)', 'SCHEDULES', 'MUNICIPAL_ACCOUNTING', MA, MA, null, 'ANNUAL', ['accountBalances'], false, 'AUTO', P(), ['TB_BALANCED'], 8],
   ['CHECKS_ISSUED', null, 'Report of Checks Issued', 'SCHEDULES', 'BARANGAY_TREASURER', BT, BT, null, 'MONTHLY', ['checks'], true, 'AUTO', P('A4', 'LANDSCAPE'), [], 5],
   ['CHECKS_CLEARED', null, 'Checks Cleared / Encashed', 'SCHEDULES', 'MUNICIPAL_ACCOUNTING', AS, MA, null, 'MONTHLY', ['checks', 'bankStatements'], false, 'AUTO', P(), [], 9],
   ['OUTSTANDING_CHECKS', null, 'Schedule of Outstanding Checks', 'SCHEDULES', 'MUNICIPAL_ACCOUNTING', AS, MA, null, 'MONTHLY', ['checks'], false, 'AUTO', P(), [], 9],

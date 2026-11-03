@@ -1,4 +1,5 @@
-import { REPORT_DEFINITIONS, reportBuilder, type ReportCategory } from '@bfms/shared';
+import { REPORT_DEFINITIONS, isAccountingReport, reportBuilder, type ReportCategory } from '@bfms/shared';
+import { TRANSACTION_MODULES_ENABLED } from '../../config/features';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { reportHref } from '../../components/source';
@@ -37,6 +38,7 @@ export function ReportsCatalog() {
   const [q, setQ] = useState('');
   const [office, setOffice] = useState('');
   const match = (r: (typeof REPORT_DEFINITIONS)[number]) =>
+    (TRANSACTION_MODULES_ENABLED || isAccountingReport(r.reportCode)) &&
     (!office || r.responsibleOffice === office) && (!q || `${r.reportCode} ${r.reportName}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="space-y-6">

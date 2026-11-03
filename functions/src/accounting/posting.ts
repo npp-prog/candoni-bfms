@@ -131,6 +131,8 @@ export async function postJournalEntryTx(jevId: string, ctx: CallerContext) {
     // 14–15. Post & freeze
     tx.update(ref, {
       status: 'POSTED',
+      // One-step review & post: posting a FOR_REVIEW entry records the poster as approver too.
+      ...(jev.status === 'FOR_REVIEW' ? { approvedBy: ctx.uid, approvedAt: now, reviewedBy: ctx.uid, reviewedAt: now } : {}),
       jevNumber,
       totalDebit: totals.totalDebit,
       totalCredit: totals.totalCredit,

@@ -7,7 +7,13 @@ import { ROUTES as DISBURSEMENTS } from './disbursements/routes';
 import { ROUTES as PROPERTY } from './property/routes';
 import { ROUTES as REPORT_CENTER } from './reportCenter/routes';
 import { ROUTES as SETUP } from './setup/routes';
+import { ROUTES as IMPORT } from './import/routes';
+import { ROUTES as SCHEDULES } from './schedules/routes';
+import { pathEnabled } from '../config/features';
 import type { ModuleRoute } from './types';
 
 /** Every module's routes. Each phase owns its folder under src/modules/. */
-export const MODULE_ROUTES: ModuleRoute[] = [...BUDGET, ...COLLECTIONS, ...DISBURSEMENTS, ...CASH_ADVANCES, ...BOOKS, ...BANK, ...PROPERTY, ...REPORT_CENTER, ...SETUP];
+export const MODULE_ROUTES: ModuleRoute[] = [...BUDGET, ...COLLECTIONS, ...DISBURSEMENTS, ...CASH_ADVANCES, ...BOOKS, ...BANK, ...PROPERTY, ...REPORT_CENTER, ...SETUP, ...IMPORT, ...SCHEDULES].filter(
+  // Accounting-only mode drops the transaction modules' routes (src/config/features.ts).
+  (r) => pathEnabled(r.path),
+);

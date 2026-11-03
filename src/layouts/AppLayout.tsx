@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Icon } from '../components/ui';
 import { env } from '../config/env';
+import { pathEnabled } from '../config/features';
 import { CURRENT_PHASE, NAV } from '../config/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useBarangay } from '../contexts/BarangayContext';
 
-const GROUPS = ['Overview', 'Budget & Treasury', 'Accounting', 'Property', 'Reports', 'Settings'] as const;
+const GROUPS = ['Overview', 'Budget & Treasury', 'Accounting', 'Schedules', 'Property', 'Reports', 'Settings'] as const;
 
 const headerSelect = 'h-9 rounded-md border border-navy-600 bg-navy-700 px-2 text-sm text-white disabled:opacity-80';
 
@@ -17,7 +18,7 @@ export function AppLayout() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const scope = barangayId ?? 'ALL';
-  const items = NAV.filter((n) => can(n.permission, scope) || (n.path === '/admin' && (can('admin.users.manage', 'ALL') || can('fiscalYear.manage', 'ALL'))));
+  const items = NAV.filter((n) => pathEnabled(n.path)).filter((n) => can(n.permission, scope) || (n.path === '/admin' && (can('admin.users.manage', 'ALL') || can('fiscalYear.manage', 'ALL'))));
   const years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() + 1 - i);
 
   // Close the mobile drawer on navigation and on Escape.

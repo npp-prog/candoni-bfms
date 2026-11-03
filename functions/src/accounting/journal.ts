@@ -7,6 +7,7 @@ import {
   assertIsoDate,
   assertPeriodAllowsEncoding,
   assertSegregation,
+  bookForLines,
   computeJournalTotals,
   findTransition,
   periodDocId,
@@ -41,7 +42,10 @@ const draftSchema = z.object({
   barangayId: z.enum(BARANGAY_IDS as [BarangayId, ...BarangayId[]]),
   jevDate: z.string(),
   fundId: z.string().min(1).max(60).default('GF'),
-  journal: z.enum(['JCT', 'GJ']),
+  /** Omitted: decided by the lines (any cash account → JCT). */
+  journal: z.enum(['JCT', 'GJ']).optional(),
+  transactionType: z.enum(['DISBURSEMENT', 'COLLECTION', 'DEPOSIT', 'LIQUIDATION', 'OTHERS', 'OPENING']).nullish(),
+  payeeName: z.string().trim().max(200).nullish(),
   entryType: z.enum(['REGULAR', 'ADJUSTING', 'CORRECTING', 'OPENING']).default('REGULAR'),
   sourceModule: z.enum(['MANUAL', 'IMPORT']).default('MANUAL'),
   primaryReference: z.string().max(60).nullable().default(null),
@@ -58,6 +62,8 @@ const draftSchema = z.object({
  */
 export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) => {
   ctx.require('jev.prepare', input.barangayId);
+  if (input.transactionType === 'OPENING') input.entryType = 'OPENING';
+  const journal = input.journal ?? bookForLines(input.lines);
   const jevDate = assertIsoDate(input.jevDate, 'jevDate');
   const { fiscalYear, month, key } = input.entryType === 'OPENING'
     ? { ...periodOfDate(jevDate), month: 0, key: `${jevDate.slice(0, 4)}-00` }
@@ -89,8 +95,10 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
       accountingPeriod: key,
       jevDate,
       fundId: input.fundId,
-      journal: input.journal,
+      journal,
       entryType: input.entryType,
+      transactionType: input.transactionType ?? null,
+      payeeName: input.payeeName ?? null,
       sourceModule: existing?.exists ? (existing.get('sourceModule') as JournalEntryDoc['sourceModule']) : input.sourceModule,
       sourceDocumentId: existing?.exists ? ((existing.get('sourceDocumentId') as string | null) ?? null) : null,
       primaryReference: input.primaryReference,
@@ -128,7 +136,7 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
         jevId: jevRef.id,
         jevDate,
         jevNumber: null,
-        journal: input.journal,
+        journal,
         entryType: input.entryType,
         posted: false,
         lineNo: i + 1,
@@ -139,7 +147,7 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
         lineDescription: l.lineDescription,
         primaryReference: input.primaryReference,
         secondaryReference: input.secondaryReference,
-        payeeName: null,
+        payeeName: input.payeeName ?? null,
         fppId: l.fppId,
         officeId: l.officeId,
       };

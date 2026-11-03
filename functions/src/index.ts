@@ -15,6 +15,7 @@ export {
 } from './closing/periods';
 export { saveJournalDraft, submitJournalEntry, approveJournalEntry, returnJournalEntry } from './accounting/journal';
 export { postJournalEntry, reverseJournalEntry } from './accounting/posting';
+export { recordCancelledCheck, deleteCancelledCheck } from './accounting/cancelledChecks';
 
 import './modules/registry';
 export { saveSource, sourceAction } from './sources/engine';
