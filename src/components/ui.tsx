@@ -45,7 +45,7 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: { title: s
             </ol>
           </nav>
         )}
-        <h1 className="font-serif text-2xl font-bold text-navy-800">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -171,7 +171,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, idPrefix 
           tabIndex={value === t ? 0 : -1}
           onClick={() => onChange(t)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${value === t ? 'border-gold-500 font-semibold text-navy-800' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`}
+          className={`-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${value === t ? 'border-brand-600 font-semibold text-navy-900' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`}
         >
           {t}
         </button>
@@ -203,7 +203,7 @@ export function Modal({ open, title, onClose, children, footer, wide }: { open: 
   return (
     <dialog ref={ref} onClose={onClose} aria-labelledby={titleId} className={`w-[calc(100vw-2rem)] ${wide ? 'max-w-5xl' : 'max-w-lg'} rounded-lg p-0 shadow-xl backdrop:bg-navy-900/50`}>
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
-        <h2 id={titleId} className="font-serif text-lg font-bold text-navy-800">{title}</h2>
+        <h2 id={titleId} className="text-lg font-semibold tracking-tight text-navy-900">{title}</h2>
         <button type="button" onClick={onClose} className="btn-ghost btn-icon" aria-label="Close dialog">
           <Icon name="x" />
         </button>

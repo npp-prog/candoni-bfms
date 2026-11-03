@@ -60,7 +60,7 @@ export function ReportsCatalog() {
         if (!defs.length) return null;
         return (
           <section key={cat} aria-labelledby={`cat-${cat}`}>
-            <h2 id={`cat-${cat}`} className="mb-2 font-serif text-lg font-bold text-navy-800">{CATEGORY_LABEL[cat]}</h2>
+            <h2 id={`cat-${cat}`} className="mb-2 text-lg font-semibold tracking-tight text-navy-900">{CATEGORY_LABEL[cat]}</h2>
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {defs.map((r) => {
                 const available = !!reportBuilder(r.reportCode);

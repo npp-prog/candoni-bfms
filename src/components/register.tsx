@@ -12,7 +12,7 @@ export function ModuleTabs({ tabs, label }: { tabs: Array<{ to: string; label: s
           to={t.to}
           end={t.end}
           className={({ isActive }) =>
-            `-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${isActive ? 'border-gold-500 font-semibold text-navy-800' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`
+            `-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${isActive ? 'border-brand-600 font-semibold text-navy-900' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`
           }
         >
           {t.label}
