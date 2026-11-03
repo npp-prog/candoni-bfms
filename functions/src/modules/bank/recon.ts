@@ -2,138 +2,83 @@ import {
   BfmsError,
   CASH_IN_BANK,
   COL,
-  OPEN_CHECK_STATUSES,
   bankPeriodDocId,
-  bookBalanceFromRows,
-  buildReconciliation,
-  lastDayOfMonth,
+  loadBankReconData,
   periodKey,
-  toReconAda,
-  toReconCheck,
-  toReconDeposit,
-  toReconMemo,
-  type AccountBalanceDoc,
-  type BankAccountDoc,
-  type BankMemoRecord,
-  type BankReconciliationRecord,
-  type BankStatementRecord,
+  runBankRecon,
+  storedReconInputs,
+  type BankReconData,
+  type BankReconInputs,
+  type BankReconPeriod,
+  type BankReconRun,
   type BarangayId,
-  type Centavos,
-  type CheckDoc,
-  type DepositDoc,
-  type LineClass,
-  type ManualMatch,
-  type ManualReconItem,
-  type ReconAda,
-  type ReconCheck,
-  type ReconDeposit,
-  type ReconMemo,
-  type ReconResult,
+  type DataSource,
+  type Filter,
+  type OrderBy,
+  type WithId,
 } from '@bfms/shared';
-import type { DocumentSnapshot, QuerySnapshot, Transaction } from 'firebase-admin/firestore';
+import type { Query, Transaction } from 'firebase-admin/firestore';
 import { db } from '../../lib/admin';
 
-export interface ReconPeriod {
-  barangayId: BarangayId;
-  bankAccountId: string;
-  fiscalYear: number;
-  month: number;
-}
-
-export interface LoadedRecon {
-  id: string;
-  monthStart: string;
-  monthEnd: string;
-  bank: BankAccountDoc;
-  statement: BankStatementRecord | null;
-  recon: DocumentSnapshot;
-  items: QuerySnapshot;
-  bookBalance: Centavos;
-  checks: ReconCheck[];
-  deposits: ReconDeposit[];
-  adas: ReconAda[];
-  memos: ReconMemo[];
+function apply(q: Query, filters: readonly Filter[], orderBy: readonly OrderBy[] = [], limit?: number): Query {
+  let out = q;
+  for (const [f, op, v] of filters) out = out.where(f, op, v);
+  for (const [f, dir] of orderBy) out = out.orderBy(f, dir ?? 'asc');
+  if (limit) out = out.limit(limit);
+  return out;
 }
 
 /**
- * READ phase: everything a reconciliation needs, inside the caller's transaction.
- * Queries use equality / `in` filters only (no composite indexes); periods are filtered in memory.
+ * The report DataSource over a Firestore transaction: the shared loader then reads the journal,
+ * statements and reconciliations consistently inside the callable's READ phase.
  */
-export async function loadRecon(tx: Transaction, p: ReconPeriod): Promise<LoadedRecon> {
-  const bankSnap = await tx.get(db.collection(COL.bankAccounts).doc(p.bankAccountId));
-  if (!bankSnap.exists) throw new BfmsError('VALIDATION_FAILED', 'Bank account not found.');
-  const bank = bankSnap.data() as BankAccountDoc;
-  if (bank.barangayId !== p.barangayId) throw new BfmsError('BARANGAY_MISMATCH', 'The bank account belongs to another barangay.');
-  const id = bankPeriodDocId(p.barangayId, p.bankAccountId, p.fiscalYear, p.month);
-  const ref = db.collection(COL.bankReconciliations).doc(id);
-  const byBank = (col: string) => db.collection(col).where('barangayId', '==', p.barangayId).where('bankAccountId', '==', p.bankAccountId);
-  const years = [p.fiscalYear - 1, p.fiscalYear];
-  const [stmt, recon, items, openChecks, clearedChecks, deposits, adas, memos, balances] = await Promise.all([
-    tx.get(db.collection(COL.bankStatements).doc(id)),
-    tx.get(ref),
-    tx.get(ref.collection('items')),
-    tx.get(byBank(COL.checks).where('status', 'in', [...OPEN_CHECK_STATUSES])),
-    tx.get(byBank(COL.checks).where('status', '==', 'CLEARED').where('fiscalYear', 'in', years)),
-    tx.get(byBank(COL.deposits).where('fiscalYear', 'in', years)),
-    tx.get(byBank(COL.adas).where('fiscalYear', 'in', years)),
-    tx.get(byBank(COL.bankMemos).where('accountingPeriod', '==', periodKey(p.fiscalYear, p.month))),
-    tx.get(
-      db
-        .collection(COL.accountBalances)
-        .where('barangayId', '==', p.barangayId)
-        .where('fiscalYear', '==', p.fiscalYear)
-        .where('accountCode', '==', CASH_IN_BANK)
-        .where('subsidiaryId', '==', bank.subsidiaryId),
-    ),
-  ]);
+export function txDataSource(tx: Transaction): DataSource {
+  const docs = <T>(s: FirebaseFirestore.QuerySnapshot) => s.docs.map((d) => ({ ...(d.data() as T), id: d.id }) as WithId<T>);
   return {
-    id,
-    monthStart: `${p.fiscalYear}-${String(p.month).padStart(2, '0')}-01`,
-    monthEnd: lastDayOfMonth(p.fiscalYear, p.month),
-    bank,
-    statement: stmt.exists ? (stmt.data() as BankStatementRecord) : null,
-    recon,
-    items,
-    bookBalance: bookBalanceFromRows(balances.docs.map((d) => d.data() as AccountBalanceDoc), CASH_IN_BANK, bank.subsidiaryId, p.month),
-    checks: [...openChecks.docs, ...clearedChecks.docs].map((d) => toReconCheck(d.id, d.data() as CheckDoc)),
-    deposits: deposits.docs.map((d) => toReconDeposit(d.id, d.data() as DepositDoc)),
-    adas: adas.docs.flatMap((d) => toReconAda(d.id, d.data()) ?? []),
-    memos: memos.docs.map((d) => toReconMemo(d.id, d.data() as BankMemoRecord)),
+    async get<T>(col: string, id: string) {
+      const s = await tx.get(db.collection(col).doc(id));
+      return s.exists ? ({ ...(s.data() as T), id: s.id } as WithId<T>) : null;
+    },
+    async list<T>(col: string, filters: readonly Filter[], orderBy?: readonly OrderBy[], limit?: number) {
+      return docs<T>(await tx.get(apply(db.collection(col), filters, orderBy, limit)));
+    },
+    async listGroup<T>(sub: string, filters: readonly Filter[], orderBy?: readonly OrderBy[], limit?: number) {
+      return docs<T>(await tx.get(apply(db.collectionGroup(sub), filters, orderBy, limit)));
+    },
+    async listSub<T>(col: string, id: string, sub: string, orderBy?: readonly OrderBy[]) {
+      return docs<T>(await tx.get(apply(db.collection(col).doc(id).collection(sub), [], orderBy)));
+    },
   };
 }
 
-export interface ReconInputs {
-  classifications: Record<string, LineClass>;
-  manualItems: ManualReconItem[];
-  manualMatches: ManualMatch[];
+export interface LoadedRecon extends BankReconData {
+  /** Existing item documents of this month's reconciliation (replaced on every Prepare). */
+  itemIds: string[];
 }
 
-export function storedInputs(recon: DocumentSnapshot): ReconInputs {
-  const r = recon.data() as Partial<BankReconciliationRecord> | undefined;
-  return { classifications: r?.classifications ?? {}, manualItems: r?.manualItems ?? [], manualMatches: r?.manualMatches ?? [] };
+/** READ phase: everything a reconciliation needs, inside the caller's transaction. */
+export async function loadRecon(tx: Transaction, p: BankReconPeriod): Promise<LoadedRecon> {
+  const ds = txDataSource(tx);
+  let d: BankReconData;
+  try {
+    d = await loadBankReconData(ds, p);
+  } catch (e) {
+    throw new BfmsError('BARANGAY_MISMATCH', (e as Error).message);
+  }
+  const items = await tx.get(db.collection(COL.bankReconciliations).doc(d.id).collection('items'));
+  return { ...d, itemIds: items.docs.map((x) => x.id) };
 }
 
-export function computeRecon(l: LoadedRecon, inputs: ReconInputs): ReconResult {
+export function computeRecon(l: LoadedRecon, inputs: BankReconInputs = storedReconInputs(l)): BankReconRun {
   if (!l.statement) throw new BfmsError('VALIDATION_FAILED', 'Enter the bank statement for this month first.');
-  return buildReconciliation({
-    monthStart: l.monthStart,
-    monthEnd: l.monthEnd,
-    bookBalance: l.bookBalance,
-    bankBalance: l.statement.endingBalance,
-    lines: l.statement.lines,
-    checks: l.checks,
-    deposits: l.deposits,
-    adas: l.adas,
-    memos: l.memos,
-    ...inputs,
-  });
+  return runBankRecon(l, inputs);
 }
 
 /** Header fields of the reconciliation document derived from a computed result. */
-export function reconFigures(l: LoadedRecon, r: ReconResult) {
+export function reconFigures(l: LoadedRecon, r: BankReconRun) {
   return {
-    bookBalance: l.bookBalance,
-    bankBalance: l.statement!.endingBalance,
+    bookBalance: r.bookBalance,
+    bankBalance: r.bankBalance,
     ...r.totals,
     adjustedBookBalance: r.adjustedBookBalance,
     adjustedBankBalance: r.adjustedBankBalance,
@@ -141,16 +86,19 @@ export function reconFigures(l: LoadedRecon, r: ReconResult) {
     matches: r.matches,
     itemCount: r.items.length,
     unmatchedLineCount: Object.keys(r.lineClasses).length,
+    outstandingCheckCount: r.items.filter((i) => i.category === 'OUTSTANDING_CHECK').length,
+    checksIssuedCount: r.schedule1.filter((s) => !s.priorYear && !s.key.startsWith('LINE:')).length,
+    warnings: r.warnings.slice(0, 50),
     statementDate: l.statement!.statementDate,
     monthEnd: l.monthEnd,
   };
 }
 
 /** WRITE phase: replace the items subcollection with the freshly computed items. */
-export function writeItems(tx: Transaction, l: LoadedRecon, r: ReconResult): void {
+export function writeItems(tx: Transaction, l: LoadedRecon, r: BankReconRun): void {
   const ref = db.collection(COL.bankReconciliations).doc(l.id);
   const keep = new Set(r.items.map((i) => String(i.seq).padStart(4, '0')));
-  l.items.docs.forEach((d) => !keep.has(d.id) && tx.delete(d.ref));
+  l.itemIds.forEach((id) => !keep.has(id) && tx.delete(ref.collection('items').doc(id)));
   for (const i of r.items) tx.set(ref.collection('items').doc(String(i.seq).padStart(4, '0')), i);
 }
 
