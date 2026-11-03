@@ -29,7 +29,7 @@ import {
   isCaScheduleAccount,
   isDepreciablePpeAccount,
   ppeGlFigures,
-} from '../../../../shared/src/accounting/schedules';
+} from '@bfms/shared';
 import { AuditWriter } from '../../audit/auditWriter';
 import { db, Timestamp } from '../../lib/admin';
 import { secureCallable } from '../../lib/callable';

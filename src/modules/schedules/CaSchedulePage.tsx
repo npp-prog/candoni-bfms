@@ -2,8 +2,8 @@ import { formatPesos, manilaToday, type BarangayId, type Centavos, type LegacyCa
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 // The schedule functions are not re-exported from @bfms/shared's index (registry owned elsewhere).
-import type { CaScheduleItem, CaSlSchedule } from '../../../shared/src/accounting/schedules';
-import { loadCaSchedule } from '../../../shared/src/accounting/schedulesData';
+import type { CaScheduleItem, CaSlSchedule } from '@bfms/shared';
+import { loadCaSchedule } from '@bfms/shared';
 import { MoneyInput, SubsidiarySelect } from '../../components/forms';
 import { reportHref } from '../../components/source';
 import { ConfirmDialog, EmptyState, Field, Icon, Modal, Money, PageHeader, TableSkeleton } from '../../components/ui';

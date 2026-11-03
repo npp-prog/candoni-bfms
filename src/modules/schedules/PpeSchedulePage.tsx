@@ -2,8 +2,8 @@ import { MONTH_NAMES, formatPesos, type BarangayId, type Centavos, type PpeSched
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 // The schedule functions are not re-exported from @bfms/shared's index (registry owned elsewhere).
-import { computePpeSchedule, defaultPpeRow, depreciationJevLines, isDepreciablePpeAccount, ppeGlFigures } from '../../../shared/src/accounting/schedules';
-import { loadPpeSchedule } from '../../../shared/src/accounting/schedulesData';
+import { computePpeSchedule, defaultPpeRow, depreciationJevLines, isDepreciablePpeAccount, ppeGlFigures } from '@bfms/shared';
+import { loadPpeSchedule } from '@bfms/shared';
 import { AccountInput, MoneyInput } from '../../components/forms';
 import { reportHref } from '../../components/source';
 import { EmptyState, Field, Icon, Modal, Money, PageHeader, TableSkeleton } from '../../components/ui';
