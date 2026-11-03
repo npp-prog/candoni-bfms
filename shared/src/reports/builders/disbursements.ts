@@ -9,6 +9,7 @@ import type { Ts } from '../../types/common';
 import type { ReportBody, ReportBuilder, ReportContext } from '../context';
 import type { WithId } from '../datasource';
 import { inRange } from '../helpers';
+import { bankAccountsOf, bankLabel as bankAccountLabel, checksIssuedRows, jevHeaders } from './bank';
 import { col, longDate, row, table, type ReportRow, type ReportSection } from '../model';
 
 /** Phase 5 — DV and Payroll forms (MFMB), Report of Checks Issued, Cancelled Checks. */
@@ -223,56 +224,65 @@ const PAYROLL: ReportBuilder = {
 const byCheckNo = (a: CheckRecord, b: CheckRecord) => a.checkNumber.padStart(20, '0').localeCompare(b.checkNumber.padStart(20, '0')) || a.checkDate.localeCompare(b.checkDate);
 const DEAD = ['CANCELLED', 'VOID'];
 
-/** Report of Checks Issued — every check number issued in the month, per bank account (cancelled ones listed at zero). */
+/**
+ * Report of Checks Issued (legacy 04.1) — every check number in the month per the JOURNAL: credits
+ * to Cash in Bank carrying a check no. (primaryReference) on the bank account's CIB ledger, plus
+ * the cancelled-checks register (listed at 0.00). One table per bank account.
+ */
 const CHECKS_ISSUED: ReportBuilder = {
   code: 'CHECKS_ISSUED',
   params: 'MONTH',
   extras: [{ key: 'bankAccountId', label: 'Bank account', kind: 'bankAccount' }],
   async build(ctx) {
-    const banks = new Map((await ctx.ds.list<BankAccountDoc>('bankAccounts', [['barangayId', '==', ctx.params.barangayId]])).map((b) => [b.id, b]));
-    const checks = (await ctx.ds.list<CheckRecord>('checks', ctx.scope())).filter((c) => inRange(c.checkDate, ctx.range) && (!ctx.params.bankAccountId || c.bankAccountId === ctx.params.bankAccountId));
+    const all = await bankAccountsOf(ctx);
+    const banks = ctx.params.bankAccountId ? all.filter((b) => b.id === ctx.params.bankAccountId) : all;
+    const headers = await jevHeaders(ctx);
     const columns = [
       col('date', 'Date', 'date'),
       col('checkNo', 'Check No.', 'code'),
-      col('dvNo', 'DV / Payroll No.', 'code'),
+      col('dvNo', 'DV No.', 'code'),
       col('payee', 'Payee', 'text', { width: 3 }),
-      col('nature', 'Nature of payment', 'text', { width: 3 }),
+      col('nature', 'Particulars', 'text', { width: 3 }),
       col('amount', 'Amount', 'money'),
     ];
-    const bankIds = [...new Set(checks.map((c) => c.bankAccountId))].sort((a, b) => bankLabel(banks.get(a)).localeCompare(bankLabel(banks.get(b))));
     const sections: ReportSection[] = [];
     let grand = 0;
-    for (const id of bankIds) {
-      const list = checks.filter((c) => c.bankAccountId === id).sort(byCheckNo);
-      const rows = list.map((c) =>
-        DEAD.includes(c.status)
-          ? row({ date: c.checkDate, checkNo: c.checkNumber, dvNo: c.dvNumber, payee: c.payee?.name ?? '', nature: `${c.status} — ${c.cancelReason ?? ''}`.trim(), amount: null }, 'note')
-          : row({ date: c.checkDate, checkNo: c.checkNumber, dvNo: c.dvNumber, payee: c.payee?.name ?? '', nature: c.natureOfPayment ?? '', amount: c.amount }),
-      );
-      const total = list.filter((c) => !DEAD.includes(c.status)).reduce((t, c) => t + c.amount, 0);
+    let count = 0;
+    for (const bank of banks) {
+      const list = (await checksIssuedRows(ctx, bank, ctx.range)).sort((a, b) => a.date.localeCompare(b.date) || a.checkNumber.padStart(20, '0').localeCompare(b.checkNumber.padStart(20, '0')));
+      if (!list.length && banks.length > 1) continue;
+      const rows = list.map((c) => {
+        const particulars = c.jevIds.map((id) => headers.get(id)?.particulars).find(Boolean) ?? c.particulars;
+        const payee = c.payeeName || (c.jevIds.map((id) => headers.get(id)?.payeeName).find(Boolean) ?? '');
+        return c.cancelled
+          ? row({ date: c.date, checkNo: c.checkNumber, dvNo: c.reference, payee, nature: `CANCELLED — ${c.cancelRemarks}`, amount: 0 }, 'note')
+          : row({ date: c.date, checkNo: c.checkNumber, dvNo: c.reference, payee, nature: particulars ?? '', amount: c.amount });
+      });
+      const total = list.reduce((t, c) => t + c.amount, 0);
       grand += total;
-      rows.push(row({ payee: `Total — ${list.length} check(s), ${list.filter((c) => DEAD.includes(c.status)).length} cancelled`, amount: total }, 'total'));
-      sections.push(table(columns, rows, { title: bankLabel(banks.get(id)) }));
+      count += list.length;
+      if (list.length) rows.push(row({ payee: `Total — ${list.length} check(s), ${list.filter((c) => c.cancelled).length} cancelled`, amount: total }, 'total'));
+      sections.push(table(columns, rows, { title: bankAccountLabel(bank), emptyText: 'No checks were issued this month.' }));
     }
     if (!sections.length) sections.push(table(columns, [], { emptyText: 'No checks were issued this month.' }));
-    else if (bankIds.length > 1) sections.push(table(columns, [row({ payee: 'GRAND TOTAL', amount: grand }, 'grandtotal')]));
+    else if (sections.length > 1) sections.push(table(columns, [row({ payee: 'GRAND TOTAL', amount: grand }, 'grandtotal')]));
     const bt = ctx.sign('Certified correct', 'BARANGAY_TREASURER');
     sections.push({
       kind: 'text',
-      paragraphs: [`I hereby certify that this Report of Checks Issued is a full, true and correct statement of all checks issued by me during the period stated above, totalling ${peso(grand)}.`],
+      paragraphs: [`I hereby certify that this Report of Checks Issued is a full, true and correct statement of all checks issued during the period stated above, totalling ${peso(grand)}.`],
     });
-    const only = ctx.params.bankAccountId ? banks.get(ctx.params.bankAccountId) : undefined;
+    const only = ctx.params.bankAccountId ? banks[0] : undefined;
     return {
       subtitle: [ctx.range.label],
       meta: [
         { label: 'Fund', value: 'General Fund' },
-        { label: 'Bank account', value: only ? bankLabel(only) : 'All bank accounts' },
+        { label: 'Bank account', value: only ? bankAccountLabel(only) : 'All bank accounts' },
         { label: 'Accountable officer', value: [bt.name, bt.position].filter(Boolean).join(', ') },
       ],
       sections,
       signatories: [bt],
       validations: [],
-      isEmpty: checks.length === 0,
+      isEmpty: count === 0,
     };
   },
 };
