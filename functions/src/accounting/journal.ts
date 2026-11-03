@@ -38,7 +38,7 @@ export const jevLineSchema = z.object({
 });
 
 const draftSchema = z.object({
-  jevId: z.string().optional(),
+  jevId: z.string().nullish(),
   barangayId: z.enum(BARANGAY_IDS as [BarangayId, ...BarangayId[]]),
   jevDate: z.string(),
   fundId: z.string().min(1).max(60).default('GF'),
@@ -165,7 +165,7 @@ export const saveJournalDraft = secureCallable(draftSchema, async (input, ctx) =
   return { jevId: jevRef.id };
 });
 
-const actionSchema = z.object({ jevId: z.string().min(1), remarks: z.string().max(1000).optional() });
+const actionSchema = z.object({ jevId: z.string().min(1), remarks: z.string().max(1000).nullish() });
 
 /** Generic JEV status transition: SUBMIT (→FOR_REVIEW), APPROVE, RETURN. POST/REVERSE have dedicated functions. */
 function jevTransition(action: 'SUBMIT' | 'APPROVE' | 'RETURN') {

@@ -1,4 +1,4 @@
-import type { BarangayId, BarangayScope, JournalLineInput, ReportParams, RoleCode } from '@bfms/shared';
+import type { BarangayId, BarangayScope, JournalLineInput, ReportParams, RoleCode, TransactionType } from '@bfms/shared';
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { functions } from '../firebase/app';
 
@@ -31,10 +31,13 @@ export const api = {
       barangayId: BarangayId;
       jevDate: string;
       fundId: string;
-      journal: 'JCT' | 'GJ';
+      journal?: 'JCT' | 'GJ';
       entryType?: 'REGULAR' | 'ADJUSTING' | 'CORRECTING' | 'OPENING';
+      transactionType?: TransactionType | null;
+      payeeName?: string | null;
       primaryReference?: string | null;
       secondaryReference?: string | null;
+      tertiaryReference?: string | null;
       particulars: string;
       lines: JournalLineInput[];
     },
