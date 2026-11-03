@@ -4,12 +4,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: { 50: '#eef3fa', 100: '#d5e0f0', 200: '#a9bfdf', 300: '#7496c6', 400: '#476fa9', 500: '#2b5189', 600: '#1d3d6d', 700: '#132f57', 800: '#0b2545', 900: '#071a33' },
-        gold: { 50: '#fbf7e8', 100: '#f5ecc4', 300: '#e2c96a', 500: '#c9a227', 600: '#a8841b', 700: '#7f6414' },
+        /*
+         * One palette with the municipality's other systems (CFMS/CBO and DMS):
+         *   deep #20364c sidebar · slate blue #284e64 · ink #243b50 headings
+         *   steel blue #3e6a80 primary actions (brand-600) · teal #558b8c accent (gold-500)
+         * The legacy class name `gold` now holds the teal accent, as DMS does.
+         */
+        navy: { 50: '#eef4f6', 100: '#d9e6eb', 200: '#b8cfd8', 300: '#8eb0be', 400: '#6590a3', 500: '#457489', 600: '#355f74', 700: '#284e64', 800: '#243b50', 900: '#20364c', 950: '#162636' },
+        brand: { 50: '#eef5f8', 100: '#d8e8ef', 200: '#b4d1de', 300: '#89b3c6', 400: '#6d98ac', 500: '#4f8098', 600: '#3e6a80', 700: '#335869', 800: '#2b4a59', 900: '#243d49' },
+        gold: { 50: '#eef6f5', 100: '#d6eae8', 200: '#b9dbdb', 300: '#8fc2c1', 400: '#6aa6a6', 500: '#558b8c', 600: '#457273', 700: '#3a5f60', 800: '#304e4f', 900: '#283f40' },
+        sand: '#edd0a9',
+        clay: '#cf8c6e',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['"Source Serif 4"', 'Georgia', 'serif'],
+        sans: ['"Inter"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // Headings use Inter too (DMS/CBO); `font-serif` is kept as an alias.
+        serif: ['"Inter"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // Codes and numbers: Inter with tabular figures and a plain zero, as CBO.
+        mono: ['"Inter"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+      },
+      fontSize: { '2xs': ['0.6875rem', { lineHeight: '1rem' }] },
+      boxShadow: {
+        card: '0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06)',
+        raised: '0 4px 12px -2px rgb(16 24 40 / 0.08), 0 2px 6px -2px rgb(16 24 40 / 0.05)',
       },
     },
   },

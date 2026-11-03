@@ -52,16 +52,18 @@ const bankMemo: ServerSourceModule<typeof memoSchema> = {
       particulars: `Bank ${m.memoType === 'DEBIT' ? 'debit' : 'credit'} memo: ${m.particulars}`,
       primaryReference: null, // the BM number is stamped by the ACCEPT hook below (allocated after this read phase)
       secondaryReference: m.bankReference || null,
+      payeeName: (bank.get('bankName') as string | undefined) ?? null,
       lines: memoJevLines(m.memoType, m.amount, m.classificationAccountCode, bank.get('subsidiaryId') as string, m.particulars),
     };
   },
   onAction: {
-    // WRITE phase after the engine created the JEV: carry the BM number onto the JEV header and lines.
+    // WRITE phase after the engine created the JEV: carry the BM number onto the JEV header and lines,
+    // and the journal's transaction type (bank memos are "Others" in the legacy CY DB).
     async ACCEPT({ tx }) {
       return ({ number, jevId }) => {
         if (!number || !jevId) return;
         const ref = db.collection(COL.journalEntries).doc(jevId);
-        tx.update(ref, { primaryReference: number });
+        tx.update(ref, { primaryReference: number, transactionType: 'OTHERS' });
         for (const n of ['001', '002']) tx.update(ref.collection(COL.lines).doc(n), { primaryReference: number });
       };
     },

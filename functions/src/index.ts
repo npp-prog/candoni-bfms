@@ -6,6 +6,7 @@
 export { createUserAccount, setUserAssignment, revokeUserAssignment, setUserActive, recordLogin } from './security/users';
 export { onUserAssignmentWritten, resyncDatedAssignments } from './security/claims';
 export { seedReferenceData } from './admin/seed';
+export { setAllowSelfPost } from './admin/settings';
 export {
   createFiscalYear,
   openBarangayFiscalYear,
@@ -15,6 +16,7 @@ export {
 } from './closing/periods';
 export { saveJournalDraft, submitJournalEntry, approveJournalEntry, returnJournalEntry } from './accounting/journal';
 export { postJournalEntry, reverseJournalEntry } from './accounting/posting';
+export { recordCancelledCheck, deleteCancelledCheck } from './accounting/cancelledChecks';
 
 import './modules/registry';
 export { saveSource, sourceAction } from './sources/engine';
@@ -27,3 +29,5 @@ export * from './modules/books/callables';
 export * from './modules/bank/callables';
 export * from './modules/property/callables';
 export * from './reports/callables';
+export * from './modules/schedules/callables';
+export * from './modules/import/callables';

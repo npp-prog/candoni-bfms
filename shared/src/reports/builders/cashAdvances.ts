@@ -1,17 +1,15 @@
-import { daysBetween } from '../../accounting/cashAdvance';
 import { buildCashbook, type CashbookSourceLine } from '../../accounting/cashbook';
 import {
   APPLIED_LIQUIDATION_STATUSES,
   caAddDays,
-  caBucketIndex,
   caOutstandingAsOf,
-  normalizeAgingSettings,
   pettyCashEffect,
   type CaMovement,
   type PettyCashKind,
 } from '../../accounting/cashAdvancesLedger';
 import { formatPesos } from '../../accounting/money';
-import { CA_ACCOUNTS, caTypeLabel, type CashAdvanceRecord, type LiquidationRecord, type PettyCashFundRecord, type PettyCashTxnRecord, type SpecialTrustFundRecord } from '../../modules/cashAdvances';
+import { loadCaSchedule } from '../../accounting/schedulesData';
+import { CA_ACCOUNTS, type CashAdvanceRecord, type LiquidationRecord, type PettyCashFundRecord, type PettyCashTxnRecord, type SpecialTrustFundRecord } from '../../modules/cashAdvances';
 import type { JournalEntryDoc } from '../../types/accounting';
 import type { ObligationDoc, RaoEntryDoc } from '../../types/budget';
 import type { Centavos, IsoDate } from '../../types/common';
@@ -136,76 +134,101 @@ const LR: ReportBuilder = {
   },
 };
 
-// ------------------------------------------------------------------ CA aging
+// ------------------------------------------------------------------ CA aging (journal-driven)
+/**
+ * "List of Unliquidated Cash Advances as of …" — the Municipal Accountant's schedule built from
+ * the posted journal (advances = debits, liquidations/refunds = credits on 1-03-03-010/020 and
+ * 1-03-04-0xx per SL) plus the legacy items carried into the opening balance (legacyCashAdvances).
+ * Credits are applied to the named advance (check/DV no. in the reference) and then FIFO
+ * (shared/src/accounting/schedules.ts). Grouped by accountable officer like the legacy sheet.
+ */
 const CA_AGING: ReportBuilder = {
   code: 'CA_AGING',
   params: 'AS_OF',
   async build(ctx) {
     const asOf = ctx.range.to;
-    const settings = normalizeAgingSettings(await ctx.ds.get('systemSettings', 'aging'));
-    const buckets = settings.buckets;
-    const { byCa } = await caMovements(ctx);
-    const cas = (await ctx.ds.list<CashAdvanceRecord>('cashAdvances', [['barangayId', '==', ctx.params.barangayId]])).filter((c) => c.status !== 'CLOSED' && c.grantDate <= asOf);
-    type Line = { ca: WithId<CashAdvanceRecord>; bal: number; days: number; b: number };
-    const byOfficer = new Map<string, Line[]>();
-    for (const ca of cas) {
-      const bal = caOutstandingAsOf(ca, byCa.get(ca.id) ?? [], asOf);
-      if (!bal || bal <= 0) continue;
-      const days = daysBetween(ca.grantDate, asOf);
-      byOfficer.set(ca.accountableOfficerId, [...(byOfficer.get(ca.accountableOfficerId) ?? []), { ca, bal, days, b: caBucketIndex(days, buckets) }]);
-    }
-    const sls = await ctx.subsidiaries();
+    const s = await loadCaSchedule(ctx.ds, ctx.params.barangayId, ctx.params.fiscalYear, asOf);
     const bk = (i: number) => `b${i}`;
     const columns = [
-      col('dv', 'DV / Check No.', 'text'),
-      col('date', 'Date granted', 'date'),
-      col('particulars', 'Purpose', 'text', { width: 3 }),
-      col('due', 'Due date', 'date'),
-      col('amount', 'Amount granted', 'money'),
-      col('liquidated', 'Liquidated / refunded', 'money'),
-      col('balance', 'Unliquidated balance', 'money'),
-      ...buckets.map((b, i) => col(bk(i), b.label, 'money', { group: 'Aging (days from grant)' })),
+      col('check', 'Check No.', 'code'),
+      col('date', 'Date', 'date'),
+      col('dv', 'DV No.', 'code'),
+      col('account', 'Account Name', 'text', { width: 2 }),
+      col('particulars', 'Particulars', 'text', { width: 3 }),
+      col('code', 'Account Code', 'code'),
+      col('amount', 'Amount', 'money'),
+      ...s.buckets.map((b, i) => col(bk(i), b.label, 'money', { group: 'Aging (days from date granted)' })),
       col('days', 'Days', 'number'),
     ];
+    const accounts = await ctx.accounts();
     const rows: ReportRow[] = [];
-    const grand: Record<string, number> = { amount: 0, liquidated: 0, balance: 0 };
-    let overdue = 0;
-    const officers = [...byOfficer.entries()].sort((a, b) => (sls.get(a[0])?.subsidiaryCode ?? a[0]).localeCompare(sls.get(b[0])?.subsidiaryCode ?? b[0]));
-    for (const [officerId, lines] of officers) {
-      const sl = sls.get(officerId);
-      rows.push(row({ dv: `${sl?.subsidiaryCode ?? ''} ${lines[0]!.ca.accountableOfficerName}`.trim(), particulars: `${lines[0]!.ca.accountCode}` }, 'heading'));
-      const sub: Record<string, number> = { amount: 0, liquidated: 0, balance: 0 };
-      for (const { ca, bal, days, b } of lines.sort((x, y) => x.ca.grantDate.localeCompare(y.ca.grantDate))) {
-        if (asOf > ca.liquidationDueDate) overdue++;
-        const cells: Record<string, CellValue> = {
-          dv: [ca.dvNumber, ca.checkNumber && `Chk ${ca.checkNumber}`].filter(Boolean).join(' / ') + (ca.isLegacy ? ' (migrated)' : ''),
-          date: ca.grantDate,
-          particulars: `${ca.purpose} [${caTypeLabel(ca.cashAdvanceType)}]${asOf > ca.liquidationDueDate ? ' — OVERDUE' : ''}`,
-          due: ca.liquidationDueDate,
-          amount: ca.amountGranted,
-          liquidated: ca.amountGranted - bal || null,
-          balance: bal,
-          [bk(b)]: bal,
-          days,
-        };
-        rows.push(row(cells, 'normal', 1));
-        sub.amount! += ca.amountGranted;
-        sub.liquidated! += ca.amountGranted - bal;
-        sub.balance! += bal;
-        sub[bk(b)] = (sub[bk(b)] ?? 0) + bal;
-      }
-      rows.push(row({ particulars: `Total — ${lines[0]!.ca.accountableOfficerName}`, ...sub }, 'subtotal'));
-      for (const [k, v] of Object.entries(sub)) grand[k] = (grand[k] ?? 0) + v;
+    for (const g of s.officers) {
+      rows.push(row({ check: g.officerName.toUpperCase() }, 'heading'));
+      for (const i of g.items)
+        rows.push(
+          row(
+            {
+              check: i.checkNumber,
+              date: i.date,
+              dv: i.dvNumber,
+              account: accounts.get(i.accountCode)?.accountName ?? i.accountCode,
+              particulars: `${i.particulars}${i.applied ? ` (balance after ${peso(i.applied)} liquidated)` : ''}${i.source === 'LEGACY' ? ' [prior years]' : ''}`,
+              code: i.accountCode,
+              amount: i.outstanding,
+              [bk(i.bucketIndex)]: i.outstanding,
+              days: i.days,
+            },
+            'normal',
+            1,
+          ),
+        );
+      const sub: Record<string, CellValue> = { particulars: `Sub-total — ${g.officerName}`, amount: g.total };
+      g.bucketTotals.forEach((v, i) => (sub[bk(i)] = v || null));
+      rows.push(row(sub, 'subtotal'));
     }
-    rows.push(row({ particulars: 'GRAND TOTAL', ...grand }, 'grandtotal'));
+    if (s.officers.length) {
+      const grand: Record<string, CellValue> = { particulars: 'GRAND TOTAL', amount: s.grandTotal };
+      s.bucketTotals.forEach((v, i) => (grand[bk(i)] = v || null));
+      rows.push(row(grand, 'grandtotal'));
+    }
+    const sls = s.sls.filter((x) => x.scheduleBalance !== 0 || x.ledgerBalance !== 0);
+    const recon = table(
+      [
+        col('code', 'Account Code', 'code'),
+        col('sl', 'SL', 'code'),
+        col('officer', 'Accountable Officer', 'text', { width: 2 }),
+        col('schedule', 'Per schedule', 'money'),
+        col('ledger', 'Per GL / SL (posted)', 'money'),
+        col('diff', 'Difference', 'money'),
+      ],
+      [
+        ...sls.map((x) => row({ code: x.accountCode, sl: x.slCode, officer: x.officerName, schedule: x.scheduleBalance, ledger: x.ledgerBalance, diff: x.difference || null })),
+        row({ officer: 'TOTAL', schedule: sls.reduce((t, x) => t + x.scheduleBalance, 0), ledger: sls.reduce((t, x) => t + x.ledgerBalance, 0), diff: sls.reduce((t, x) => t + x.difference, 0) || null }, 'total'),
+      ],
+      { title: 'Reconciliation with the General Ledger / Subsidiary Ledgers' },
+    );
+    const negative = s.sls.filter((x) => x.ledgerBalance < 0);
     return {
+      title: 'List of Unliquidated Cash Advances',
       subtitle: [ctx.range.label],
-      meta: [{ label: 'Accounts', value: '1-03-03-010 Advances for Payroll; 1-03-03-020 Advances to Officers and Employees' }, { label: 'Overdue advances', value: String(overdue) }],
-      sections: [table(columns, officers.length ? rows : [], { emptyText: 'No unliquidated cash advances as of this date.' })],
-      signatories: [blankSig('Prepared by', 'Accounting Staff'), ctx.sign('Certified correct', 'MUNICIPAL_ACCOUNTANT')],
-      validations: [],
-      isEmpty: officers.length === 0,
-      notes: ['Aging is counted in days from the date the cash advance was granted. Overdue: past the liquidation due date (systemSettings/aging).'],
+      meta: [{ label: 'Accounts', value: '1-03-03-010 Advances for Payroll; 1-03-03-020 Advances to Officers and Employees; 1-03-04-0xx Due from Officers and Employees' }],
+      sections: [table(columns, rows, { emptyText: 'No unliquidated cash advances as of this date.' }), recon],
+      signatories: [ctx.sign('Prepared by', 'MUNICIPAL_ACCOUNTANT', asOf)],
+      validations: [
+        validation(
+          'CA_SCHEDULE_EQUALS_SL',
+          s.reconciled,
+          s.reconciled
+            ? 'The schedule agrees with the GL/SL balance of every advance account and officer.'
+            : `${s.differences.length} account/SL balance(s) differ from the schedule (${s.differences.map((d) => `${d.accountCode} ${d.slCode || d.officerName}: ${peso(d.difference)}`).slice(0, 5).join('; ')}). Complete the legacy items or correct the ledger.`,
+        ),
+        ...(negative.length ? [validation('CA_NEGATIVE_SL', 'WARNING', `${negative.length} subsidiary ledger(s) have a credit (negative) balance — over-liquidation or a misposted refund.`)] : []),
+      ],
+      isEmpty: s.sls.length === 0,
+      notes: [
+        'Liquidations and refunds are applied to the advance whose check no. or DV no. is named in the reference/description of the entry, otherwise to the oldest open advance of the same officer and account (first-in, first-out).',
+        'Aging is counted in days from the date the advance was granted to the as-of date.',
+      ],
     };
   },
 };

@@ -19,6 +19,7 @@ import {
 import { EXPENSE_CLASSES } from '../../modules/budget';
 import { defaultNfsNotes, nfsNarrativeId, type NfsNarrativeDoc } from '../../modules/books';
 import type { AccountBalanceDoc, JournalLineDoc } from '../../types/accounting';
+import type { LegacyBalanceDoc } from '../../types/accountingSchedules';
 import type { AppropriationDoc, EstimatedIncomeDoc } from '../../types/budget';
 import type { ReportBuilder, ReportContext } from '../context';
 import type { WithId } from '../datasource';
@@ -34,51 +35,100 @@ import { col, row, table, validation, type ReportColumn, type ReportRow, type Re
 
 type Bal = WithId<AccountBalanceDoc>;
 
+/**
+ * One column of a statement. BFMS = the year's own postings; LEGACY = the prior year's pre-closing
+ * trial balance imported from the workbook (legacyBalances); OPENING = no prior-year data at all,
+ * so the SFP comparative is FY's period-00 opening balances.
+ */
+interface YearData {
+  fy: number;
+  bals: Bal[];
+  source: 'BFMS' | 'LEGACY' | 'OPENING';
+}
+
 interface FsData {
   fy: number;
   accounts: FsAccounts;
   cur: Bal[];
   prior: Bal[];
   hasPrior: boolean;
+  /** Comparative years shown after FY (up to FY−1 and FY−2, as the legacy statements do). */
+  comparatives: YearData[];
+}
+
+const hasRollup = (b: readonly Bal[]) => b.some((x) => x.subsidiaryId === null);
+
+/**
+ * Rows from an imported pre-closing TB: equity accounts (except prior years' adjustments) count
+ * as January 1 balances (period 00), everything else as the year's activity (period 12), so the
+ * SFP, SFPerf and SCNAE builders treat them exactly like posted balances.
+ */
+function legacyRows(doc: LegacyBalanceDoc): Bal[] {
+  return doc.rows.map((r, i) => {
+    const month = r.accountCode.startsWith('3-') && r.accountCode !== '3-01-01-020' ? 0 : 12;
+    return { id: `legacy-${i}`, barangayId: doc.barangayId, fiscalYear: doc.fiscalYear, month, accountingPeriod: `${doc.fiscalYear}-${String(month).padStart(2, '0')}`, fundId: 'GF', accountCode: r.accountCode, subsidiaryId: null, debit: r.debit, credit: r.credit, lineCount: 1, updatedAt: doc.importedAt } as Bal;
+  });
+}
+
+async function loadYear(ctx: ReportContext, fy: number): Promise<YearData | null> {
+  const bals = await periodBalances(ctx, fy);
+  if (hasRollup(bals)) return { fy, bals, source: 'BFMS' };
+  const legacy = await ctx.ds.get<LegacyBalanceDoc>('legacyBalances', `${ctx.params.barangayId}_${fy}`);
+  return legacy?.rows.length ? { fy, bals: legacyRows(legacy), source: 'LEGACY' } : null;
 }
 
 async function fsData(ctx: ReportContext): Promise<FsData> {
   const fy = ctx.params.fiscalYear;
-  const [accounts, cur, prior] = await Promise.all([ctx.accounts(), periodBalances(ctx), periodBalances(ctx, fy - 1)]);
-  return { fy, accounts, cur, prior, hasPrior: prior.some((b) => b.subsidiaryId === null) };
+  const [accounts, cur, p1, p2] = await Promise.all([ctx.accounts(), periodBalances(ctx), loadYear(ctx, fy - 1), loadYear(ctx, fy - 2)]);
+  const comparatives = [p1, p2].filter((y): y is YearData => !!y);
+  // First year on the system and nothing imported: compare the SFP with the opening balances.
+  if (!p1) comparatives.unshift({ fy: fy - 1, bals: cur.filter((b) => b.month === 0), source: 'OPENING' });
+  return { fy, accounts, cur, prior: p1?.bals ?? [], hasPrior: !!p1, comparatives };
 }
 
 const asAt = (fy: number) => `As at December 31, ${fy}`;
 const fsSigns = (ctx: ReportContext) => [ctx.sign('Certified correct', 'MUNICIPAL_ACCOUNTANT'), ctx.sign('Noted by', 'PUNONG_BARANGAY')];
+const yk = (i: number) => `y${i}`;
 
-function cols(fy: number, detailed: boolean, priorLabel = String(fy - 1)): ReportColumn[] {
-  return [...(detailed ? [col('code', 'Account code', 'code')] : []), col('label', 'Particulars', 'text', { width: 4 }), col('cur', String(fy), 'money'), col('prior', priorLabel, 'money')];
+/** Columns: (code) · particulars · FY · comparatives. */
+function cols(fy: number, years: readonly YearData[], detailed: boolean): ReportColumn[] {
+  return [...(detailed ? [col('code', 'Account code', 'code')] : []), col('label', 'Particulars', 'text', { width: 4 }), col(yk(0), String(fy), 'money'), ...years.map((y, i) => col(yk(i + 1), String(y.fy), 'money'))];
+}
+
+/** Two-column (FY vs FY−1) layout used by the NFS schedules. */
+const nfsCols = (fy: number): ReportColumn[] => [col('code', 'Account code', 'code'), col('label', 'Particulars', 'text', { width: 4 }), col('cur', String(fy), 'money'), col('prior', String(fy - 1), 'money')];
+
+/** Cells for one row: value per year (null = not applicable for that year). */
+function yearCells(values: ReadonlyArray<number | null>): Record<string, number | null> {
+  return Object.fromEntries(values.map((v, i) => [yk(i), v]));
 }
 
 /** Rows of one statement section: each line (condensed) or each account under its line (detailed). */
-function sectionRows(section: FsSection, cur: Map<string, FsLineAmount>, prior: Map<string, FsLineAmount> | null, detailed: boolean, accounts: FsAccounts): ReportRow[] {
+function sectionRows(section: FsSection, maps: ReadonlyArray<Map<string, FsLineAmount> | null>, detailed: boolean, accounts: FsAccounts): ReportRow[] {
   const rows: ReportRow[] = [];
   for (const def of FS_LINES.filter((l) => l.section === section)) {
-    const c = cur.get(def.id);
-    const p = prior?.get(def.id);
-    if (!c && !p) continue;
+    const per = maps.map((m) => m?.get(def.id));
+    if (per.every((p) => !p)) continue;
+    const amounts = per.map((p, i) => (maps[i] ? (p?.amount ?? 0) : null));
     if (!detailed) {
-      rows.push(row({ label: def.label, cur: c?.amount ?? 0, prior: prior ? (p?.amount ?? 0) : null }, 'normal', 1));
+      rows.push(row({ label: def.label, ...yearCells(amounts) }, 'normal', 1));
       continue;
     }
     rows.push(row({ label: def.label }, 'subheading', 1));
-    const codes = [...new Set([...(c?.accounts ?? []), ...(p?.accounts ?? [])].map((a) => a.accountCode))].sort((a, b) => (accounts.get(a)?.sortOrder ?? 0) - (accounts.get(b)?.sortOrder ?? 0) || a.localeCompare(b));
+    const codes = [...new Set(per.flatMap((p) => p?.accounts ?? []).map((a) => a.accountCode))].sort((a, b) => (accounts.get(a)?.sortOrder ?? 0) - (accounts.get(b)?.sortOrder ?? 0) || a.localeCompare(b));
     for (const code of codes) {
-      const ca = c?.accounts.find((a) => a.accountCode === code);
-      const pa = p?.accounts.find((a) => a.accountCode === code);
-      rows.push(row({ code, label: (ca ?? pa)!.contra ? `Less: ${(ca ?? pa)!.accountName}` : (ca ?? pa)!.accountName, cur: ca?.amount ?? 0, prior: prior ? (pa?.amount ?? 0) : null }, 'normal', 2));
+      const found = per.map((p) => p?.accounts.find((a) => a.accountCode === code));
+      const any = found.find(Boolean)!;
+      rows.push(row({ code, label: any.contra ? `Less: ${any.accountName}` : any.accountName, ...yearCells(found.map((a, i) => (maps[i] ? (a?.amount ?? 0) : null))) }, 'normal', 2));
     }
-    rows.push(row({ label: `Total ${def.label}`, cur: c?.amount ?? 0, prior: prior ? (p?.amount ?? 0) : null }, 'subtotal', 1));
+    rows.push(row({ label: `Total ${def.label}`, ...yearCells(amounts) }, 'subtotal', 1));
   }
   return rows;
 }
 
 const unmappedNote = (codes: string[]) => (codes.length ? [`Accounts without a statement classification (shown under a catch-all line): ${[...new Set(codes)].join(', ')}. Review their Financial Statement Classification in the Chart of Accounts.`] : []);
+const sourceNotes = (d: FsData) =>
+  d.comparatives.flatMap((y) => (y.source === 'LEGACY' ? [`${y.fy} figures are from the pre-closing trial balance imported from the legacy workbook.`] : y.source === 'OPENING' ? [`${y.fy} figures are the opening balances of ${d.fy}.`] : []));
 
 // ------------------------------------------------------------------ SFP / DSFP
 
@@ -88,41 +138,46 @@ function sfpBuilder(code: 'SFP' | 'DSFP', detailed: boolean): ReportBuilder {
     params: 'YEAR',
     async build(ctx) {
       const d = await fsData(ctx);
-      const cur = computeSfp(netByAccount(d.cur, 0, 13), d.accounts);
-      const pri = computeSfp(d.hasPrior ? netByAccount(d.prior, 0, 13) : netByAccount(d.cur, 0, 0), d.accounts);
-      const r = (label: string, c: number, p: number, style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, cur: c, prior: p }, style, indent);
+      const years = [computeSfp(netByAccount(d.cur, 0, 13), d.accounts), ...d.comparatives.map((y) => computeSfp(netByAccount(y.bals, 0, 13), d.accounts))];
+      const maps = years.map((y) => y.lines);
+      const r = (label: string, pick: (s: (typeof years)[number]) => number, style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, ...yearCells(years.map(pick)) }, style, indent);
+      const cur = years[0]!;
+      const anyNcl = years.some((y) => y.nonCurrentLiabilities);
+      const anyUnclosed = years.some((y) => y.unclosedSurplus);
       const rows: ReportRow[] = [
         row({ label: 'ASSETS' }, 'heading'),
         row({ label: 'Current Assets' }, 'subheading'),
-        ...sectionRows('CA', cur.lines, pri.lines, detailed, d.accounts),
-        r('Total Current Assets', cur.currentAssets, pri.currentAssets, 'subtotal'),
+        ...sectionRows('CA', maps, detailed, d.accounts),
+        r('Total Current Assets', (y) => y.currentAssets, 'subtotal'),
         row({ label: 'Non-Current Assets' }, 'subheading'),
-        ...sectionRows('NCA', cur.lines, pri.lines, detailed, d.accounts),
-        r('Total Non-Current Assets', cur.nonCurrentAssets, pri.nonCurrentAssets, 'subtotal'),
-        r('TOTAL ASSETS', cur.totalAssets, pri.totalAssets, 'grandtotal'),
+        ...sectionRows('NCA', maps, detailed, d.accounts),
+        r('Total Non-Current Assets', (y) => y.nonCurrentAssets, 'subtotal'),
+        r('TOTAL ASSETS', (y) => y.totalAssets, 'grandtotal'),
         row({ label: 'LIABILITIES' }, 'heading'),
         row({ label: 'Current Liabilities' }, 'subheading'),
-        ...sectionRows('CL', cur.lines, pri.lines, detailed, d.accounts),
-        r('Total Current Liabilities', cur.currentLiabilities, pri.currentLiabilities, 'subtotal'),
-        ...(cur.nonCurrentLiabilities || pri.nonCurrentLiabilities
-          ? [row({ label: 'Non-Current Liabilities' }, 'subheading'), ...sectionRows('NCL', cur.lines, pri.lines, detailed, d.accounts), r('Total Non-Current Liabilities', cur.nonCurrentLiabilities, pri.nonCurrentLiabilities, 'subtotal')]
-          : []),
-        r('TOTAL LIABILITIES', cur.totalLiabilities, pri.totalLiabilities, 'total'),
+        ...sectionRows('CL', maps, detailed, d.accounts),
+        r('Total Current Liabilities', (y) => y.currentLiabilities, 'subtotal'),
+        ...(anyNcl ? [row({ label: 'Non-Current Liabilities' }, 'subheading'), ...sectionRows('NCL', maps, detailed, d.accounts), r('Total Non-Current Liabilities', (y) => y.nonCurrentLiabilities, 'subtotal')] : []),
+        r('TOTAL LIABILITIES', (y) => y.totalLiabilities, 'total'),
         row({ label: 'NET ASSETS/EQUITY' }, 'heading'),
-        ...sectionRows('EQUITY', cur.lines, pri.lines, detailed, d.accounts),
-        ...(cur.unclosedSurplus || pri.unclosedSurplus ? [r('Surplus (Deficit) for the period (not yet closed)', cur.unclosedSurplus, pri.unclosedSurplus, 'normal', detailed ? 2 : 1)] : []),
-        r('TOTAL NET ASSETS/EQUITY', cur.totalNetAssets, pri.totalNetAssets, 'total'),
-        r('TOTAL LIABILITIES AND NET ASSETS/EQUITY', cur.totalLiabilities + cur.totalNetAssets, pri.totalLiabilities + pri.totalNetAssets, 'grandtotal'),
+        ...sectionRows('EQUITY', maps, detailed, d.accounts),
+        ...(anyUnclosed ? [r('Surplus (Deficit) for the period (not yet closed)', (y) => y.unclosedSurplus, 'normal', detailed ? 2 : 1)] : []),
+        r('TOTAL NET ASSETS/EQUITY', (y) => y.totalNetAssets, 'total'),
+        r('TOTAL LIABILITIES AND NET ASSETS/EQUITY', (y) => y.totalLiabilities + y.totalNetAssets, 'grandtotal'),
       ];
-      const notes = [...unmappedNote(cur.unmapped), ...(!pri.balanced ? [`The ${d.fy - 1} comparative does not balance (difference ${peso(pri.difference)}).`] : []), ...(!d.hasPrior ? [`${d.fy - 1} figures are the opening balances of ${d.fy}.`] : [])];
+      const notes = [
+        ...unmappedNote(cur.unmapped),
+        ...years.slice(1).flatMap((y, i) => (!y.balanced ? [`The ${d.comparatives[i]!.fy} comparative does not balance (difference ${peso(y.difference)}).`] : [])),
+        ...sourceNotes(d),
+      ];
       return {
-        subtitle: [asAt(d.fy), 'General Fund'],
+        subtitle: [asAt(d.fy), 'General Fund', ...(d.comparatives.length > 1 ? [`(With comparative figures for CY ${d.comparatives.map((y) => y.fy).join(' and ')})`] : [])],
         meta: [],
-        sections: [table(cols(d.fy, detailed), rows)],
+        sections: [table(cols(d.fy, d.comparatives, detailed), rows)],
         signatories: fsSigns(ctx),
         validations: [validation('SFP_BALANCED', cur.balanced, cur.balanced ? `Total assets ${peso(cur.totalAssets)} = liabilities ${peso(cur.totalLiabilities)} + net assets/equity ${peso(cur.totalNetAssets)}.` : `Assets differ from liabilities + net assets/equity by ${peso(cur.difference)}.`)],
         notes,
-        isEmpty: !d.cur.some((b) => b.subsidiaryId === null),
+        isEmpty: !hasRollup(d.cur),
       };
     },
   };
@@ -136,28 +191,30 @@ function sfperfBuilder(code: 'SFPERF' | 'DSFPERF', detailed: boolean): ReportBui
     params: 'YEAR',
     async build(ctx) {
       const d = await fsData(ctx);
-      const cur = computeSfperf(netByAccount(d.cur, 1, 12), d.accounts);
-      const pri = d.hasPrior ? computeSfperf(netByAccount(d.prior, 1, 12), d.accounts) : null;
-      const r = (label: string, k: 'totalRevenue' | 'totalExpenses' | 'surplusFromOperations' | 'transfersFrom' | 'transfersTo' | 'surplus', style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, cur: cur[k], prior: pri ? pri[k] : null }, style, indent);
+      // Opening balances carry no performance figures, so that column is dropped here.
+      const comps = d.comparatives.filter((y) => y.source !== 'OPENING');
+      const years = [computeSfperf(netByAccount(d.cur, 1, 12), d.accounts), ...comps.map((y) => computeSfperf(netByAccount(y.bals, 1, 12), d.accounts))];
+      const maps = years.map((y) => y.lines);
+      const r = (label: string, k: 'totalRevenue' | 'totalExpenses' | 'surplusFromOperations' | 'transfersFrom' | 'transfersTo' | 'surplus', style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, ...yearCells(years.map((y) => y[k])) }, style, indent);
       const rows: ReportRow[] = [
         row({ label: 'Revenue' }, 'heading'),
-        ...sectionRows('REV', cur.lines, pri?.lines ?? null, detailed, d.accounts),
+        ...sectionRows('REV', maps, detailed, d.accounts),
         r('Total Revenue', 'totalRevenue', 'subtotal'),
         row({ label: 'Less: Current Operating Expenses' }, 'heading'),
-        ...sectionRows('EXP', cur.lines, pri?.lines ?? null, detailed, d.accounts),
+        ...sectionRows('EXP', maps, detailed, d.accounts),
         r('Total Current Operating Expenses', 'totalExpenses', 'subtotal'),
         r('Surplus (Deficit) from Current Operations', 'surplusFromOperations', 'total'),
       ];
-      if (cur.transfersFrom || pri?.transfersFrom) rows.push(row({ label: 'Add: Transfers, Assistance and Subsidy From' }, 'subheading'), ...sectionRows('TRANSFERS_FROM', cur.lines, pri?.lines ?? null, detailed, d.accounts).filter((x) => x.style !== 'subheading'));
-      if (cur.transfersTo || pri?.transfersTo) rows.push(row({ label: 'Less: Transfers, Assistance and Subsidy To' }, 'subheading'), ...sectionRows('TRANSFERS_TO', cur.lines, pri?.lines ?? null, detailed, d.accounts).filter((x) => x.style !== 'subheading'));
+      if (years.some((y) => y.transfersFrom)) rows.push(row({ label: 'Add: Transfers, Assistance and Subsidy From' }, 'subheading'), ...sectionRows('TRANSFERS_FROM', maps, detailed, d.accounts).filter((x) => x.style !== 'subheading'));
+      if (years.some((y) => y.transfersTo)) rows.push(row({ label: 'Less: Transfers, Assistance and Subsidy To' }, 'subheading'), ...sectionRows('TRANSFERS_TO', maps, detailed, d.accounts).filter((x) => x.style !== 'subheading'));
       rows.push(r('SURPLUS (DEFICIT) FOR THE PERIOD', 'surplus', 'grandtotal'));
       return {
-        subtitle: [ctx.range.label, 'General Fund'],
+        subtitle: [ctx.range.label, 'General Fund', ...(comps.length ? [`(With comparative figures for CY ${comps.map((y) => y.fy).join(' and ')})`] : [])],
         meta: [],
-        sections: [table(cols(d.fy, detailed), rows)],
+        sections: [table(cols(d.fy, comps, detailed), rows)],
         signatories: fsSigns(ctx),
         validations: [],
-        notes: unmappedNote(cur.unmapped),
+        notes: [...unmappedNote(years[0]!.unmapped), ...sourceNotes({ ...d, comparatives: comps })],
         isEmpty: !d.cur.some((b) => b.subsidiaryId === null && b.month >= 1 && b.month <= 12),
       };
     },
@@ -166,10 +223,14 @@ function sfperfBuilder(code: 'SFPERF' | 'DSFPERF', detailed: boolean): ReportBui
 
 // ------------------------------------------------------------------ SNAE / SCNAE
 
-function equityRows(d: FsData): ReportRow[] {
-  const cur = computeEquityChanges(d.cur, d.accounts);
-  const pri = d.hasPrior ? computeEquityChanges(d.prior, d.accounts) : null;
-  const r = (label: string, k: keyof typeof cur, style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, cur: cur[k], prior: pri ? pri[k] : null }, style, indent);
+/** Equity movements per year; opening-only comparatives have no movement, so they are skipped. */
+function equityYears(d: FsData): { comps: YearData[]; years: ReturnType<typeof computeEquityChanges>[] } {
+  const comps = d.comparatives.filter((y) => y.source !== 'OPENING');
+  return { comps, years: [computeEquityChanges(d.cur, d.accounts), ...comps.map((y) => computeEquityChanges(y.bals, d.accounts))] };
+}
+
+function equityRows(years: ReturnType<typeof computeEquityChanges>[]): ReportRow[] {
+  const r = (label: string, k: keyof (typeof years)[number], style: ReportRow['style'] = 'normal', indent?: ReportRow['indent']) => row({ label, ...yearCells(years.map((y) => y[k])) }, style, indent);
   return [
     r('Balance at January 1', 'beginningBalance', 'subheading'),
     row({ label: 'Add/(Deduct):' }, 'normal'),
@@ -178,7 +239,7 @@ function equityRows(d: FsData): ReportRow[] {
     r('Restated balance', 'restatedBalance', 'subtotal'),
     row({ label: 'Changes in net assets/equity for the year:' }, 'normal'),
     r('Surplus (Deficit) for the period', 'surplusDeficit', 'normal', 1),
-    ...(cur.otherAdjustments || pri?.otherAdjustments ? [r('Other adjustments', 'otherAdjustments', 'normal', 1)] : []),
+    ...(years.some((y) => y.otherAdjustments) ? [r('Other adjustments', 'otherAdjustments', 'normal', 1)] : []),
     r('Balance at December 31', 'endingBalance', 'grandtotal'),
   ];
 }
@@ -195,14 +256,15 @@ const SCNAE: ReportBuilder = {
   params: 'YEAR',
   async build(ctx) {
     const d = await fsData(ctx);
+    const { comps, years } = equityYears(d);
     return {
-      subtitle: [ctx.range.label, 'General Fund'],
+      subtitle: [ctx.range.label, 'General Fund', ...(comps.length ? [`(With comparative figures for CY ${comps.map((y) => y.fy).join(' and ')})`] : [])],
       meta: [],
-      sections: [table(cols(d.fy, false), equityRows(d))],
+      sections: [table(cols(d.fy, comps, false), equityRows(years))],
       signatories: fsSigns(ctx),
       validations: [],
-      notes: equityCheck(d),
-      isEmpty: !d.cur.some((b) => b.subsidiaryId === null),
+      notes: [...equityCheck(d), ...sourceNotes({ ...d, comparatives: comps })],
+      isEmpty: !hasRollup(d.cur),
     };
   },
 };
@@ -213,23 +275,22 @@ const SNAE: ReportBuilder = {
   params: 'YEAR',
   async build(ctx) {
     const d = await fsData(ctx);
-    const curNets = netByAccount(d.cur, 0, 13);
-    const priNets = d.hasPrior ? netByAccount(d.prior, 0, 13) : netByAccount(d.cur, 0, 0);
+    const netsPer = [netByAccount(d.cur, 0, 13), ...d.comparatives.map((y) => netByAccount(y.bals, 0, 13))];
     const isEq = (c: string) => resolveFsLine(c, d.accounts.get(c)).line.section === 'EQUITY';
-    const codes = [...new Set([...curNets.keys(), ...priNets.keys()])].filter((c) => isEq(c) && (curNets.get(c) || priNets.get(c))).sort();
-    const sfpC = computeSfp(curNets, d.accounts);
-    const sfpP = computeSfp(priNets, d.accounts);
-    const rows: ReportRow[] = codes.map((c) => row({ code: c, label: d.accounts.get(c)?.accountName ?? c, cur: -(curNets.get(c) ?? 0), prior: -(priNets.get(c) ?? 0) }, 'normal', 1));
-    if (sfpC.unclosedSurplus || sfpP.unclosedSurplus) rows.push(row({ label: 'Surplus (Deficit) for the period (not yet closed)', cur: sfpC.unclosedSurplus, prior: sfpP.unclosedSurplus }, 'normal', 1));
-    rows.push(row({ label: 'TOTAL NET ASSETS/EQUITY', cur: sfpC.totalNetAssets, prior: sfpP.totalNetAssets }, 'grandtotal'));
+    const codes = [...new Set(netsPer.flatMap((m) => [...m.keys()]))].filter((c) => isEq(c) && netsPer.some((m) => m.get(c))).sort();
+    const sfps = netsPer.map((m) => computeSfp(m, d.accounts));
+    const rows: ReportRow[] = codes.map((c) => row({ code: c, label: d.accounts.get(c)?.accountName ?? c, ...yearCells(netsPer.map((m) => -(m.get(c) ?? 0))) }, 'normal', 1));
+    if (sfps.some((s) => s.unclosedSurplus)) rows.push(row({ label: 'Surplus (Deficit) for the period (not yet closed)', ...yearCells(sfps.map((s) => s.unclosedSurplus)) }, 'normal', 1));
+    rows.push(row({ label: 'TOTAL NET ASSETS/EQUITY', ...yearCells(sfps.map((s) => s.totalNetAssets)) }, 'grandtotal'));
+    const { comps, years } = equityYears(d);
     return {
       subtitle: [asAt(d.fy), 'General Fund'],
       meta: [],
-      sections: [table(cols(d.fy, true), rows, { title: 'Net assets/equity' }), table(cols(d.fy, false), equityRows(d), { title: 'Movement for the year' })],
+      sections: [table(cols(d.fy, d.comparatives, true), rows, { title: 'Net assets/equity' }), table(cols(d.fy, comps, false), equityRows(years), { title: 'Movement for the year' })],
       signatories: fsSigns(ctx),
       validations: [],
-      notes: equityCheck(d),
-      isEmpty: !d.cur.some((b) => b.subsidiaryId === null),
+      notes: [...equityCheck(d), ...sourceNotes(d)],
+      isEmpty: !hasRollup(d.cur),
     };
   },
 };
@@ -248,30 +309,32 @@ const SCF: ReportBuilder = {
   params: 'YEAR',
   async build(ctx) {
     const d = await fsData(ctx);
-    const cur = await scfFigures(ctx, d.fy, d.cur, d.accounts);
-    const pri = d.hasPrior ? await scfFigures(ctx, d.fy - 1, d.prior, d.accounts) : null;
+    // Cash flows need the year's cash journal, so only years posted in BFMS get a column.
+    const comps = d.comparatives.filter((y) => y.source === 'BFMS');
+    const figs = [await scfFigures(ctx, d.fy, d.cur, d.accounts), ...(await Promise.all(comps.map((y) => scfFigures(ctx, y.fy, y.bals, d.accounts))))];
+    const cur = figs[0]!;
     const rows: ReportRow[] = [];
-    const amt = (f: ScfFigures | null, id: string) => (f ? Math.abs(f.lines.get(id)?.amount ?? 0) : null);
+    const amt = (id: string) => yearCells(figs.map((f) => Math.abs(f.lines.get(id)?.amount ?? 0)));
     for (const s of ['OPERATING', 'INVESTING', 'FINANCING'] as ScfSection[]) {
       rows.push(row({ label: SCF_SECTION_LABELS[s] }, 'heading'));
       for (const dir of ['IN', 'OUT'] as const) {
-        const defs = SCF_LINES.filter((l) => l.section === s && l.direction === dir && (cur.lines.has(l.id) || pri?.lines.has(l.id)));
+        const defs = SCF_LINES.filter((l) => l.section === s && l.direction === dir && figs.some((f) => f.lines.has(l.id)));
         if (!defs.length) continue;
         rows.push(row({ label: dir === 'IN' ? 'Cash Inflows' : 'Cash Outflows' }, 'subheading', 1));
-        for (const l of defs) rows.push(row({ label: l.label, cur: amt(cur, l.id), prior: amt(pri, l.id) }, 'normal', 2));
-        const tot = (f: ScfFigures | null) => (f ? defs.reduce((t, l) => t + Math.abs(f.lines.get(l.id)?.amount ?? 0), 0) : null);
-        rows.push(row({ label: `Total Cash ${dir === 'IN' ? 'Inflows' : 'Outflows'}`, cur: tot(cur), prior: tot(pri) }, 'subtotal', 1));
+        for (const l of defs) rows.push(row({ label: l.label, ...amt(l.id) }, 'normal', 2));
+        rows.push(row({ label: `Total Cash ${dir === 'IN' ? 'Inflows' : 'Outflows'}`, ...yearCells(figs.map((f) => defs.reduce((t, l) => t + Math.abs(f.lines.get(l.id)?.amount ?? 0), 0))) }, 'subtotal', 1));
       }
       const k = s === 'OPERATING' ? 'operating' : s === 'INVESTING' ? 'investing' : 'financing';
-      rows.push(row({ label: `Net Cash Provided by (Used in) ${s.charAt(0) + s.slice(1).toLowerCase()} Activities`, cur: cur[k], prior: pri ? pri[k] : null }, 'total'));
+      rows.push(row({ label: `Net Cash Provided by (Used in) ${s.charAt(0) + s.slice(1).toLowerCase()} Activities`, ...yearCells(figs.map((f) => f[k])) }, 'total'));
     }
-    rows.push(row({ label: 'Total Cash Provided by (Used in) Operating, Investing and Financing Activities', cur: cur.netChange, prior: pri?.netChange ?? null }, 'subtotal'));
-    rows.push(row({ label: 'Add: Cash and Cash Equivalents, January 1', cur: cur.beginningCash, prior: pri?.beginningCash ?? null }, 'normal'));
-    rows.push(row({ label: 'Cash and Cash Equivalents, December 31', cur: cur.endingCash, prior: pri?.endingCash ?? null }, 'grandtotal'));
+    rows.push(row({ label: 'Total Cash Provided by (Used in) Operating, Investing and Financing Activities', ...yearCells(figs.map((f) => f.netChange)) }, 'subtotal'));
+    rows.push(row({ label: 'Add: Cash and Cash Equivalents, January 1', ...yearCells(figs.map((f) => f.beginningCash)) }, 'normal'));
+    rows.push(row({ label: 'Cash and Cash Equivalents, December 31', ...yearCells(figs.map((f) => f.endingCash)) }, 'grandtotal'));
+    const skipped = d.comparatives.filter((y) => y.source === 'LEGACY').map((y) => y.fy);
     return {
       subtitle: [ctx.range.label, 'General Fund', 'Direct method'],
       meta: [],
-      sections: [table(cols(d.fy, false), rows)],
+      sections: [table(cols(d.fy, comps, false), rows)],
       signatories: fsSigns(ctx),
       validations: [
         validation(
@@ -282,6 +345,7 @@ const SCF: ReportBuilder = {
             : `Ending cash per statement ${peso(cur.endingCash)} differs from the cash accounts ${peso(cur.cashAccountsEnding)} by ${peso(cur.difference)}.`,
         ),
       ],
+      notes: skipped.length ? [`No comparative cash flows for ${skipped.join(' and ')}: only the pre-closing trial balance was imported for those years, not their cash journal.`] : [],
       isEmpty: cur.lines.size === 0 && cur.beginningCash === 0 && cur.cashAccountsEnding === 0,
     };
   },
@@ -401,7 +465,7 @@ const NFS: ReportBuilder = {
     const sched = (title: string, codes: string[], totalLabel: string) => {
       const s = scheduleRows(codes, d, subsNames, priorNets, priorSl);
       if (!s.rows.length) return;
-      sections.push(table(cols(d.fy, true), [...s.rows, row({ label: totalLabel, cur: s.cur, prior: s.prior }, 'grandtotal')], { title: `Note ${++k}. ${title}` }));
+      sections.push(table(nfsCols(d.fy), [...s.rows, row({ label: totalLabel, cur: s.cur, prior: s.prior }, 'grandtotal')], { title: `Note ${++k}. ${title}` }));
     };
     sched('Cash and Cash Equivalents', allCodes.filter((c) => lineOf(c).id === 'SFP.CA.CASH' || isCashCode(c, d.accounts.get(c))), 'Total Cash and Cash Equivalents');
     sched('Receivables', allCodes.filter((c) => lineOf(c).id.endsWith('.RECEIVABLES')), 'Total Receivables (net)');
@@ -480,7 +544,42 @@ const SMR: ReportBuilder = {
   },
 };
 
+// ------------------------------------------------------------------ TB_3Y
+
+/**
+ * Pre-closing trial balance with the two prior years side by side (legacy 02.2_PRETB_3Y): periods
+ * 00–12 of each year (closing entries excluded), prior years from BFMS or the imported workbook TB.
+ */
+const TB_3Y: ReportBuilder = {
+  code: 'TB_3Y',
+  params: 'YEAR',
+  async build(ctx) {
+    const d = await fsData(ctx);
+    const years = [{ fy: d.fy, bals: d.cur, source: 'BFMS' as const }, ...d.comparatives.filter((y) => y.source !== 'OPENING')];
+    const nets = years.map((y) => netByAccount(y.bals, 0, 12));
+    const codes = [...new Set(nets.flatMap((m) => [...m.keys()]))].filter((c) => nets.some((m) => m.get(c))).sort((a, b) => (d.accounts.get(a)?.sortOrder ?? 0) - (d.accounts.get(b)?.sortOrder ?? 0) || a.localeCompare(b));
+    const columns: ReportColumn[] = [col('code', 'Account code', 'code'), col('name', 'Account name', 'text', { width: 3 })];
+    years.forEach((y, i) => columns.push(col(`d${i}`, 'Debit', 'money', { group: String(y.fy) }), col(`c${i}`, 'Credit', 'money', { group: String(y.fy) })));
+    const cells = (code: string) => Object.fromEntries(nets.flatMap((m, i) => { const v = m.get(code) ?? 0; return [[`d${i}`, v > 0 ? v : null], [`c${i}`, v < 0 ? -v : null]]; }));
+    const rows: ReportRow[] = codes.map((c) => row({ code: c, name: d.accounts.get(c)?.accountName ?? c, ...cells(c) }));
+    const totals = nets.map((m) => [...m.values()].reduce((t, v) => ({ d: t.d + Math.max(v, 0), c: t.c + Math.max(-v, 0) }), { d: 0, c: 0 }));
+    rows.push(row({ name: 'TOTAL', ...Object.fromEntries(totals.flatMap((t, i) => [[`d${i}`, t.d], [`c${i}`, t.c]])) }, 'grandtotal'));
+    const unbalanced = years.filter((_, i) => totals[i]!.d !== totals[i]!.c).map((y) => y.fy);
+    return {
+      title: 'Pre-Closing Trial Balance',
+      subtitle: [`As of December 31, ${d.fy}`, 'General Fund', ...(years.length > 1 ? [`(With comparative figures for CY ${years.slice(1).map((y) => y.fy).join(' and ')})`] : [])],
+      meta: [],
+      sections: [table(columns, rows)],
+      signatories: [ctx.sign('Certified correct', 'MUNICIPAL_ACCOUNTANT')],
+      validations: [validation('TB_BALANCED', !unbalanced.length, unbalanced.length ? `Debits and credits differ for ${unbalanced.join(', ')}.` : 'Every year balances.')],
+      notes: sourceNotes({ ...d, comparatives: years.slice(1) as YearData[] }),
+      isEmpty: !hasRollup(d.cur),
+    };
+  },
+};
+
 export const STATEMENT_REPORTS: ReportBuilder[] = [
+  TB_3Y,
   sfpBuilder('SFP', false),
   sfpBuilder('DSFP', true),
   sfperfBuilder('SFPERF', false),

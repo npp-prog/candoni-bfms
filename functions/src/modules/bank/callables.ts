@@ -3,6 +3,7 @@ import {
   BfmsError,
   COL,
   LINE_CLASSES,
+  MAX_OPENING_ITEMS,
   MAX_STATEMENT_LINES,
   SIGNED_CATEGORIES,
   assertReconciliationBalanced,
@@ -10,8 +11,12 @@ import {
   buildStatementLines,
   defaultMemoAccount,
   lastDayOfMonth,
+  normalizeRef,
   periodDocId,
   periodKey,
+  storedReconInputs,
+  type BankOpeningRecord,
+  type BankReconInputs,
   type BankReconciliationRecord,
   type BarangayId,
   type Centavos,
@@ -27,7 +32,7 @@ import { secureCallable } from '../../lib/callable';
 import type { CallerContext } from '../../lib/context';
 import { SequenceAllocator } from '../../numbering/sequences';
 import { createGeneratedJev } from '../../sources/jev';
-import { computeRecon, loadRecon, memoJevLines, reconFigures, storedInputs, writeItems, type ReconInputs } from './recon';
+import { computeRecon, loadRecon, memoJevLines, reconFigures, writeItems } from './recon';
 
 const barangay = z.enum(BARANGAY_IDS as [BarangayId, ...BarangayId[]]);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -62,6 +67,7 @@ export const saveBankStatement = secureCallable(
           date: isoDate,
           reference: z.string().trim().max(60).default(''),
           description: z.string().trim().max(200).default(''),
+          checkNumber: z.string().trim().max(30).nullish(),
           debit: centavos,
           credit: centavos,
         }),
@@ -80,7 +86,7 @@ export const saveBankStatement = secureCallable(
     if (!inMonth(statementDate, input.fiscalYear, input.month)) throw new BfmsError('VALIDATION_FAILED', 'The statement date must fall in the statement month.');
     const id = bankPeriodDocId(input.barangayId, input.bankAccountId, input.fiscalYear, input.month);
     const ref = db.collection(COL.bankStatements).doc(id);
-    const built = buildStatementLines(input.beginningBalance as Centavos, input.lines.map((l) => ({ ...l, date: l.date, debit: l.debit as Centavos, credit: l.credit as Centavos })));
+    const built = buildStatementLines(input.beginningBalance as Centavos, input.lines.map((l) => ({ ...l, checkNumber: l.checkNumber ?? null, debit: l.debit as Centavos, credit: l.credit as Centavos })));
     await db.runTransaction(async (tx) => {
       const [bank, snap, recon] = await Promise.all([tx.get(db.collection(COL.bankAccounts).doc(input.bankAccountId)), tx.get(ref), tx.get(db.collection(COL.bankReconciliations).doc(id))]);
       if (!bank.exists || bank.get('barangayId') !== input.barangayId) throw new BfmsError('BARANGAY_MISMATCH', 'Bank account not found for this barangay.');
@@ -117,6 +123,82 @@ export const saveBankStatement = secureCallable(
   },
 );
 
+// ------------------------------------------------------------------ prior-year outstanding items
+
+const itemId = z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/);
+const positive = centavos.refine((v) => v > 0, 'Amount must be positive.');
+
+/**
+ * Reconciliation set-up of a fiscal year (`bankStatements/{bid}_{bank}_{fy}_00`): the checks and
+ * deposits outstanding on January 1 — legacy Schedule 1 "Prior Years". They are carried on
+ * Schedule 1 / 2 until the bank clears them. Locked once a reconciliation of the year is submitted.
+ */
+export const saveBankOpeningItems = secureCallable(
+  z.object({
+    barangayId: barangay,
+    bankAccountId: z.string().min(1).max(128),
+    fiscalYear: z.number().int().min(2000).max(2100),
+    bankBalance: signed.nullish(),
+    remarks: z.string().trim().max(1000).default(''),
+    outstandingChecks: z
+      .array(z.object({ id: itemId, date: isoDate, checkNumber: z.string().trim().min(1).max(30), payeeName: z.string().trim().max(200).default(''), dvNumber: z.string().trim().max(60).default(''), amount: positive }))
+      .max(MAX_OPENING_ITEMS),
+    depositsInTransit: z
+      .array(z.object({ id: itemId, date: isoDate, reference: z.string().trim().max(60).default(''), particulars: z.string().trim().max(200).default(''), amount: positive }))
+      .max(MAX_OPENING_ITEMS)
+      .default([]),
+  }),
+  async (input, ctx) => {
+    ctx.require('recon.prepare', input.barangayId);
+    const all = [...input.outstandingChecks, ...input.depositsInTransit];
+    const late = all.find((x) => x.date >= `${input.fiscalYear}-01-01`);
+    if (late) throw new BfmsError('VALIDATION_FAILED', `Prior-year items must be dated before ${input.fiscalYear}-01-01 (${late.date}).`);
+    if (new Set(all.map((x) => x.id)).size !== all.length) throw new BfmsError('VALIDATION_FAILED', 'Duplicate item ids.');
+    const nos = input.outstandingChecks.map((c) => normalizeRef(c.checkNumber));
+    const dup = nos.find((n, i) => n && nos.indexOf(n) !== i);
+    if (dup) throw new BfmsError('VALIDATION_FAILED', `Check ${dup} is listed twice.`);
+    const id = bankPeriodDocId(input.barangayId, input.bankAccountId, input.fiscalYear, 0);
+    const ref = db.collection(COL.bankStatements).doc(id);
+    const sum = (xs: Array<{ amount: number }>) => xs.reduce((t, x) => t + x.amount, 0) as Centavos;
+    await db.runTransaction(async (tx) => {
+      const recons = await tx.getAll(...Array.from({ length: 12 }, (_, i) => db.collection(COL.bankReconciliations).doc(bankPeriodDocId(input.barangayId, input.bankAccountId, input.fiscalYear, i + 1))));
+      const [bank, snap] = await Promise.all([tx.get(db.collection(COL.bankAccounts).doc(input.bankAccountId)), tx.get(ref)]);
+      if (!bank.exists || bank.get('barangayId') !== input.barangayId) throw new BfmsError('BARANGAY_MISMATCH', 'Bank account not found for this barangay.');
+      const locked = recons.find((r) => ['FINAL', 'FOR_REVIEW'].includes(r.get('status') as string));
+      if (locked) throw new BfmsError('INVALID_STATUS', `The ${periodKey(input.fiscalYear, Number(locked.get('month')))} reconciliation is ${String(locked.get('status'))}; the prior-year items can no longer be changed.`);
+      const audit = await AuditWriter.begin(tx, ctx, input.barangayId);
+      const now = Timestamp.now();
+      const body: Omit<BankOpeningRecord, 'updatedAt'> & { updatedAt: FirebaseFirestore.Timestamp; statementPeriod: string } = {
+        kind: 'OPENING',
+        barangayId: input.barangayId,
+        fiscalYear: input.fiscalYear,
+        month: 0,
+        bankAccountId: input.bankAccountId,
+        statementPeriod: `${input.fiscalYear}-00`,
+        bankBalance: (input.bankBalance ?? null) as Centavos | null,
+        outstandingChecks: input.outstandingChecks.map((c) => ({ ...c, amount: c.amount as Centavos })),
+        depositsInTransit: input.depositsInTransit.map((d) => ({ ...d, amount: d.amount as Centavos })),
+        totalOutstandingChecks: sum(input.outstandingChecks),
+        totalDepositsInTransit: sum(input.depositsInTransit),
+        remarks: input.remarks,
+        updatedAt: now,
+        updatedBy: ctx.uid,
+      };
+      tx.set(ref, snap.exists ? body : { ...body, createdAt: now, createdBy: ctx.uid });
+      audit.write({
+        module: COL.bankStatements,
+        recordId: id,
+        action: snap.exists ? 'EDIT' : 'CREATE',
+        oldValue: snap.exists ? { checks: (snap.get('outstandingChecks') as unknown[] | undefined)?.length ?? 0, total: snap.get('totalOutstandingChecks') as number } : null,
+        newValue: { checks: body.outstandingChecks.length, total: body.totalOutstandingChecks, depositsInTransit: body.totalDepositsInTransit },
+        source: 'callable:saveBankOpeningItems',
+      });
+      audit.commit();
+    });
+    return { id, totalOutstandingChecks: sum(input.outstandingChecks), totalDepositsInTransit: sum(input.depositsInTransit) };
+  },
+);
+
 // ------------------------------------------------------------------ reconciliation
 
 const manualItem = z
@@ -141,17 +223,17 @@ export const prepareBankReconciliation = secureCallable(
   period.extend({
     classifications: z.record(z.string().max(40), lineClass).refine((r) => Object.keys(r).length <= MAX_STATEMENT_LINES, 'Too many classifications.').optional(),
     manualItems: z.array(manualItem).max(200).optional(),
-    manualMatches: z.array(z.object({ lineId: z.string().max(40), sourceCollection: z.enum(['checks', 'deposits', 'adas', 'bankMemos']), sourceId: z.string().max(128) })).max(500).optional(),
+    manualMatches: z.array(z.object({ lineId: z.string().max(40), bookKey: z.string().min(3).max(200) })).max(1000).optional(),
     remarks: z.string().max(1000).optional(),
   }),
   async (input, ctx) => {
     ctx.require('recon.prepare', input.barangayId);
     return db.runTransaction(async (tx) => {
       const l = await loadRecon(tx, input);
-      const status = (l.recon.get('status') as string | undefined) ?? 'DRAFT';
+      const status = l.recon?.status ?? 'DRAFT';
       if (!['DRAFT', 'RETURNED'].includes(status)) throw new BfmsError('INVALID_STATUS', `A ${status} reconciliation cannot be re-prepared.`);
-      const stored = storedInputs(l.recon);
-      const inputs: ReconInputs = {
+      const stored = storedReconInputs(l);
+      const inputs: BankReconInputs = {
         classifications: input.classifications ?? stored.classifications,
         manualItems: input.manualItems ?? stored.manualItems,
         manualMatches: input.manualMatches ?? stored.manualMatches,
@@ -160,7 +242,7 @@ export const prepareBankReconciliation = secureCallable(
       // A person's new match that cannot apply is an error; stale stored ones are simply dropped.
       if (input.manualMatches && r.rejectedMatches.length)
         throw new BfmsError('VALIDATION_FAILED', `Match not possible: ${r.rejectedMatches.map((m) => m.reason).join('; ')}.`, { rejected: r.rejectedMatches });
-      inputs.manualMatches = inputs.manualMatches.filter((m) => !r.rejectedMatches.some((x) => x.lineId === m.lineId && x.sourceId === m.sourceId));
+      inputs.manualMatches = inputs.manualMatches.filter((m) => !r.rejectedMatches.some((x) => x.lineId === m.lineId && x.bookKey === m.bookKey));
       const audit = await AuditWriter.begin(tx, ctx, input.barangayId);
       const now = Timestamp.now();
       const ref = db.collection(COL.bankReconciliations).doc(l.id);
@@ -178,24 +260,37 @@ export const prepareBankReconciliation = secureCallable(
         ...figures,
         ...inputs,
         status,
-        remarks: input.remarks ?? (l.recon.get('remarks') as string | undefined) ?? '',
+        remarks: input.remarks ?? l.recon?.remarks ?? '',
         preparedBy: ctx.uid,
         preparedAt: now,
         updatedAt: now,
         updatedBy: ctx.uid,
       };
-      if (l.recon.exists) tx.update(ref, header);
+      if (l.recon) tx.update(ref, header);
       else tx.create(ref, { ...header, finalizedBy: null, finalizedAt: null, revisionNumber: 0, createdAt: now, createdBy: ctx.uid });
       audit.write({
         module: COL.bankReconciliations,
         recordId: l.id,
-        action: l.recon.exists ? 'EDIT' : 'CREATE',
-        oldValue: l.recon.exists ? { difference: l.recon.get('difference'), adjustedBookBalance: l.recon.get('adjustedBookBalance') } : null,
+        action: l.recon ? 'EDIT' : 'CREATE',
+        oldValue: l.recon ? { difference: l.recon.difference, adjustedBookBalance: l.recon.adjustedBookBalance } : null,
         newValue: { bookBalance: figures.bookBalance, bankBalance: figures.bankBalance, adjustedBookBalance: r.adjustedBookBalance, adjustedBankBalance: r.adjustedBankBalance, difference: r.difference, items: r.items.length, matches: r.matches.length },
         source: 'callable:prepareBankReconciliation',
       });
       audit.commit();
-      return { id: l.id, bookBalance: figures.bookBalance, bankBalance: figures.bankBalance, adjustedBookBalance: r.adjustedBookBalance, adjustedBankBalance: r.adjustedBankBalance, difference: r.difference, matches: r.matches.length, items: r.items.length, unmatchedLines: figures.unmatchedLineCount };
+      return {
+        id: l.id,
+        bookBalance: figures.bookBalance,
+        bankBalance: figures.bankBalance,
+        adjustedBookBalance: r.adjustedBookBalance,
+        adjustedBankBalance: r.adjustedBankBalance,
+        difference: r.difference,
+        matches: r.matches.length,
+        items: r.items.length,
+        unmatchedLines: figures.unmatchedLineCount,
+        outstandingChecks: r.totals.outstandingChecks,
+        depositInTransit: r.totals.depositInTransit,
+        warnings: r.warnings,
+      };
     });
   },
 );
@@ -246,32 +341,18 @@ export const returnBankReconciliation = secureCallable(idInput, async (input, ct
 });
 
 /**
- * FOR_REVIEW → FINAL (Municipal Accountant). Recomputes everything from current data, requires a
- * balanced statement and difference = 0, then marks matched checks CLEARED (statement date) and
- * matched deposits/ADAs as reconciled. FINAL reconciliations feed the period lock checklist.
+ * FOR_REVIEW → FINAL (Municipal Accountant). Recomputes everything from the journal and the
+ * statements, requires a balanced statement and difference = 0. FINAL reconciliations feed the
+ * period lock checklist; the journal stays the record of the checks (nothing else is stamped).
  */
 export const finalizeBankReconciliation = secureCallable(idInput, async (input, ctx) =>
   reconTransition(input.id, ctx, { from: ['FOR_REVIEW'], to: 'FINAL', permission: 'recon.finalize', audit: 'FINALIZE_REPORT', remarks: input.remarks }, async (rec, tx) => {
     const l = await loadRecon(tx, { barangayId: rec.barangayId, bankAccountId: rec.bankAccountId, fiscalYear: rec.fiscalYear, month: rec.month });
     if (!l.statement?.balanced) throw new BfmsError('VALIDATION_FAILED', 'The bank statement lines do not add up to its ending balance.');
-    const r = computeRecon(l, storedInputs(l.recon));
+    const r = computeRecon(l);
     assertReconciliationBalanced(r.difference);
-    const checkById = new Map(l.checks.map((c) => [c.id, c]));
-    const adaById = new Map(l.adas.map((a) => [a.id, a]));
-    return (now, audit) => {
+    return (now) => {
       writeItems(tx, l, r);
-      for (const m of r.matches) {
-        if (m.sourceCollection === 'checks') {
-          const c = checkById.get(m.sourceId)!;
-          if (c.status === 'CLEARED' && c.clearedDate === m.date) continue;
-          tx.update(db.collection(COL.checks).doc(m.sourceId), { status: 'CLEARED', clearedDate: m.date, bankReconciliationId: l.id, updatedAt: now, updatedBy: ctx.uid });
-          audit.write({ module: COL.checks, recordId: m.sourceId, action: 'CLEAR', oldValue: { status: c.status, clearedDate: c.clearedDate }, newValue: { status: 'CLEARED', clearedDate: m.date }, source: 'callable:finalizeBankReconciliation' });
-        } else if (m.sourceCollection === 'deposits') {
-          tx.update(db.collection(COL.deposits).doc(m.sourceId), { bankReconciledDate: m.date, bankReconciliationId: l.id });
-        } else if (m.sourceCollection === 'adas' && !adaById.get(m.sourceId)?.clearedDate) {
-          tx.update(db.collection(COL.adas).doc(m.sourceId), { clearedDate: m.date, bankReconciliationId: l.id });
-        }
-      }
       return { ...reconFigures(l, r), finalizedBy: ctx.uid, finalizedAt: now };
     };
   }),
@@ -296,10 +377,10 @@ export const generateRbdcmEntries = secureCallable(period, async (input, ctx) =>
   ctx.require('jev.prepare', input.barangayId);
   return db.runTransaction(async (tx) => {
     const l = await loadRecon(tx, input);
-    const status = (l.recon.get('status') as string | undefined) ?? 'DRAFT';
+    const status = l.recon?.status ?? 'DRAFT';
     if (!['DRAFT', 'RETURNED'].includes(status)) throw new BfmsError('INVALID_STATUS', `The reconciliation is ${status}.`);
-    const r = computeRecon(l, storedInputs(l.recon));
-    const todo = r.items.filter((i) => i.statementLineId && !i.sourceId && MEMO_LINE_CATEGORIES[i.category]);
+    const r = computeRecon(l);
+    const todo = r.items.filter((i) => i.statementLineId && !i.sourceId && MEMO_LINE_CATEGORIES[i.category] && i.amount > 0);
     if (!todo.length) return { created: 0, jevs: 0, memoIds: [] as string[] };
     const codes = [...new Set(todo.map((i) => defaultMemoAccount(MEMO_LINE_CATEGORIES[i.category]!.memoType, MEMO_LINE_CATEGORIES[i.category]!.category)).filter((x): x is string => !!x))];
     const accts = codes.length ? await tx.getAll(...codes.map((c) => db.collection(COL.chartOfAccounts).doc(c))) : [];
@@ -320,26 +401,30 @@ export const generateRbdcmEntries = secureCallable(period, async (input, ctx) =>
       const ref = db.collection(COL.bankMemos).doc();
       const number = ready ? seq.allocate(input.month, COL.bankMemos, ref.id) : null;
       const particulars = (i.name || (kind.memoType === 'DEBIT' ? 'Bank debit memo' : 'Bank credit memo')).slice(0, 500);
+      // A line of an earlier (possibly locked) month is taken up in this month.
+      const memoDate = i.date >= l.monthStart ? i.date : l.monthStart;
       const jevId = ready
         ? createGeneratedJev(tx, ctx, { barangayId: input.barangayId, sourceModule: 'BANK_MEMO', sourceDocumentId: ref.id }, {
-            jevDate: i.date,
+            jevDate: memoDate,
             fundId: l.bank.fundId,
             journal: 'JCT',
             particulars: `Bank ${kind.memoType === 'DEBIT' ? 'debit' : 'credit'} memo ${number}: ${particulars}`,
             primaryReference: number,
             secondaryReference: i.reference || null,
+            payeeName: l.bank.bankName,
             lines: memoJevLines(kind.memoType, i.amount, acct!, l.bank.subsidiaryId, particulars),
           })
         : null;
-      if (jevId) jevs++;
+      // The journal's "Transaction Type" column (GeneratedJev has no field for it yet).
+      if (jevId) (tx.update(db.collection(COL.journalEntries).doc(jevId), { transactionType: 'OTHERS' }), jevs++);
       tx.create(ref, {
         barangayId: input.barangayId,
         fiscalYear: input.fiscalYear,
-        accountingPeriod: periodKey(input.fiscalYear, input.month),
+        accountingPeriod: memoDate.slice(0, 7),
         bankAccountId: input.bankAccountId,
         memoType: kind.memoType,
         category: kind.category,
-        memoDate: i.date,
+        memoDate,
         memoNumber: number,
         bankReference: i.reference,
         particulars,

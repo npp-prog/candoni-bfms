@@ -27,7 +27,8 @@ export const JEV_TRANSITIONS: readonly Transition[] = [
   { action: 'SUBMIT', from: ['DRAFT', 'RETURNED'], to: 'FOR_REVIEW', permission: 'jev.prepare' },
   { action: 'RETURN', from: ['FOR_REVIEW', 'APPROVED'], to: 'RETURNED', permission: 'jev.review', requiresReason: true },
   { action: 'APPROVE', from: ['FOR_REVIEW'], to: 'APPROVED', permission: 'jev.approve' },
-  { action: 'POST', from: ['APPROVED'], to: 'POSTED', permission: 'jev.post' },
+  // One-step review & post: the Municipal Accountant posts a submitted entry directly (approval is recorded at posting).
+  { action: 'POST', from: ['FOR_REVIEW', 'APPROVED'], to: 'POSTED', permission: 'jev.post' },
   { action: 'REVERSE', from: ['POSTED'], to: 'REVERSED', permission: 'jev.reverse', requiresReason: true },
 ];
 

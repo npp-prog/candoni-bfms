@@ -2,6 +2,7 @@ import type { Permission } from '@bfms/shared';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Spinner } from './components/ui';
+import { pathEnabled } from './config/features';
 import { NAV } from './config/navigation';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { BarangayProvider, useBarangay } from './contexts/BarangayContext';
@@ -34,7 +35,7 @@ function Guard({ permission, children, anyScope }: { permission: Permission; chi
 
 export default function App() {
   // Nav items no module has claimed yet show the "scheduled" page.
-  const placeholders = NAV.filter((n) => n.phase > 1 && !MODULE_ROUTES.some((r) => r.path.replace('/*', '') === n.path));
+  const placeholders = NAV.filter((n) => n.phase > 1 && pathEnabled(n.path) && !MODULE_ROUTES.some((r) => r.path.replace('/*', '') === n.path));
   return (
     <ToastProvider>
       <AuthProvider>
