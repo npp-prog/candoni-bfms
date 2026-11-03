@@ -37,6 +37,7 @@ This specification answers Section CV of the master development prompt. It maps 
 | 22 | Netlify Deployment Configuration | [01-system-architecture.md](01-system-architecture.md#22-netlify-deployment-configuration) |
 | 23 | Firebase Environment Strategy | [01-system-architecture.md](01-system-architecture.md#23-firebase-environment-strategy) |
 | 24 | Development Roadmap | [08-roadmap.md](08-roadmap.md) |
+| — | Accounting focus (Nov 2026 revision): workbook → BFMS mapping | [09-accounting-focus.md](09-accounting-focus.md) |
 
 ## Design decisions that apply everywhere
 
