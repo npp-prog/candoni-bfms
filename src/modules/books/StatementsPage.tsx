@@ -1,4 +1,6 @@
+import { TRANSACTION_MODULES_ENABLED } from '../../config/features';
 import { computeSfp, computeSfperf, formatPesos, netByAccount } from '@bfms/shared';
+import { isAccountingReport } from '@bfms/shared';
 import { useMemo } from 'react';
 import { Link, Route, Routes } from 'react-router-dom';
 import { ModuleTabs } from '../../components/register';
@@ -65,7 +67,7 @@ function Overview() {
     <>
       <ChecksCard />
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Financial statements">
-        {STATEMENTS.map((s) => (
+        {STATEMENTS.filter((st) => TRANSACTION_MODULES_ENABLED || isAccountingReport(st.code)).map((s) => (
           <li key={s.code} className="card flex flex-col p-4">
             <div className="flex items-start justify-between gap-2">
               <h2 className="card-title">{s.title}</h2>
