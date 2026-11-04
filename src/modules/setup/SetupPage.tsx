@@ -1,13 +1,14 @@
-import { manilaToday, type BankAccountDoc, type OfficeDoc, type SignatoryDoc, type SignatoryRole, type SubsidiaryAccountDoc, type SubsidiaryType, type WithId } from '@bfms/shared';
+import { buildChartOfAccounts, manilaToday, type BankAccountDoc, type OfficeDoc, type SignatoryDoc, type SignatoryRole, type SubsidiaryAccountDoc, type SubsidiaryType, type WithId } from '@bfms/shared';
 import { useState, type FormEvent } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AccountInput, maskAccount } from '../../components/forms';
 import { ModuleTabs, RegisterTable } from '../../components/register';
-import { Field, Icon, Modal, PageHeader, StatusChip } from '../../components/ui';
+import { Field, Icon, Modal, Money, PageHeader, StatusChip } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBarangay } from '../../contexts/BarangayContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useCollection } from '../../hooks/useCollection';
+import { onNormalSide, useYearBalances } from '../../hooks/useYearBalances';
 import { api, errorMessage } from '../../services/functions/api';
 
 /** Barangay masters every module depends on (officials, bank accounts, subsidiary ledgers, offices). */
@@ -221,9 +222,14 @@ const SL_TYPES: Array<{ value: SubsidiaryType; label: string; account: string; h
   { value: 'OTHER', label: 'Other (any account)', account: '', hint: '' },
 ];
 
+const NORMAL = new Map(buildChartOfAccounts().map((a) => [a.accountCode, a.normalBalance]));
+
 function SubsidiaryTab() {
-  const { barangayId } = useBarangay();
+  const { barangayId, fiscalYear } = useBarangay();
   const { rows, loading } = useCollection<SubsidiaryAccountDoc>('subsidiaryAccounts', barangayId ? [['barangayId', '==', barangayId]] : null);
+  const bal = useYearBalances(barangayId, fiscalYear);
+  const b = (r: WithId<SubsidiaryAccountDoc>) => bal.bySubsidiary.get(r.id);
+  const side = (r: WithId<SubsidiaryAccountDoc>, v: number) => onNormalSide(v, NORMAL.get(r.accountCode));
   const [open, setOpen] = useState(false);
   if (!barangayId) return null;
   return (
@@ -232,14 +238,30 @@ function SubsidiaryTab() {
       <RegisterTable
         caption="Subsidiary ledgers"
         rows={[...rows].sort((a, b) => a.accountCode.localeCompare(b.accountCode) || a.subsidiaryCode.localeCompare(b.subsidiaryCode))}
-        loading={loading}
-        toolbar={<div className="ml-auto"><button type="button" className="btn-primary" onClick={() => setOpen(true)}><Icon name="plus" /> Add ledger</button></div>}
+        loading={loading || bal.loading}
+        toolbar={
+          <>
+            <p className="text-xs text-slate-500">Balances for FY {fiscalYear} from posted entries, before closing; shown on the controlling account's normal side.</p>
+            <div className="ml-auto"><button type="button" className="btn-primary" onClick={() => setOpen(true)}><Icon name="plus" /> Add ledger</button></div>
+          </>
+        }
         empty="No subsidiary ledgers yet."
         columns={[
           { label: 'Code', render: (r) => <span className="font-mono">{r.subsidiaryCode}</span> },
           { label: 'Name', render: (r) => r.subsidiaryName },
-          { label: 'Controlling account', render: (r) => <span className="font-mono text-xs">{r.accountCode}</span> },
+          { label: 'Controlling account', render: (r) => <span className="whitespace-nowrap font-mono text-xs">{r.accountCode}</span> },
           { label: 'Type', render: (r) => r.type.replace(/_/g, ' ').toLowerCase() },
+          { label: 'Beginning', numeric: true, render: (r) => <Money value={side(r, b(r)?.beginning ?? 0)} /> },
+          { label: 'Debits', numeric: true, render: (r) => <Money value={b(r)?.debit ?? 0} /> },
+          { label: 'Credits', numeric: true, render: (r) => <Money value={b(r)?.credit ?? 0} /> },
+          {
+            label: `Ending FY ${fiscalYear}`,
+            numeric: true,
+            render: (r) => {
+              const v = side(r, b(r)?.ending ?? 0);
+              return <span className={`font-medium ${v < 0 ? 'text-red-700' : ''}`} title={v < 0 ? 'Abnormal balance' : undefined}><Money value={v} /></span>;
+            },
+          },
           { label: 'Status', render: (r) => <StatusChip status={r.active ? 'ACTIVE' : 'CLOSED'} /> },
         ]}
       />
