@@ -237,7 +237,7 @@ export function ImportPage() {
     <div>
       <PageHeader
         title="Import legacy workbook"
-        subtitle="Bring a barangay's Google Sheets books (exported as .xlsx) into BFMS: SL master, opening balances, the current-year journal, prior-year balances, cash-advance list and PPE schedule."
+        subtitle="Bring a barangay's Google Sheets books (exported as .xlsx) into BAS: SL master, opening balances, the current-year journal, prior-year balances, cash-advance list and PPE schedule."
         breadcrumbs={['Accounting', 'Import']}
       />
 
@@ -271,7 +271,7 @@ export function ImportPage() {
       {parsed && (
         <section className="card mb-4 p-4" aria-labelledby="imp-run">
           <h2 id="imp-run" className="card-title mb-3">3. Import</h2>
-          {!status && !statusError && <Spinner label="Checking what is already in BFMS…" />}
+          {!status && !statusError && <Spinner label="Checking what is already in BAS…" />}
           {status?.inProgress && (
             <p className="mb-3 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
               An unfinished import ({status.inProgress.importId}) by {status.inProgress.createdByName} exists. Importing the same workbook again as that user resumes it; already-posted entries are skipped.

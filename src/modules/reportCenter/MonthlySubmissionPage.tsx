@@ -35,7 +35,7 @@ export function MonthlySubmissionPage() {
   if (!barangayId) return null;
   return (
     <>
-      <PageHeader title="Monthly Submission" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BFMS', 'Reports', 'Monthly submission']} />
+      <PageHeader title="Monthly Submission" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BAS', 'Reports', 'Monthly submission']} />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div>
           <label className="label" htmlFor="ms-month">Month</label>

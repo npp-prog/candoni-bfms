@@ -22,7 +22,7 @@ export function PayrollPage() {
   const list = rows.filter((r) => !status || r.status === status).sort((a, b) => b.payrollDate.localeCompare(a.payrollDate));
   return (
     <>
-      <PageHeader title="Payroll" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BFMS', 'Payroll']} actions={<Link className="btn-secondary" to="/disbursements/vouchers">Disbursement vouchers</Link>} />
+      <PageHeader title="Payroll" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BAS', 'Payroll']} actions={<Link className="btn-secondary" to="/disbursements/vouchers">Disbursement vouchers</Link>} />
       {barangayId && (
         <RegisterTable
           caption={`Payrolls for FY ${fiscalYear}`}

@@ -15,7 +15,7 @@ export function DisbursementsPage() {
       <PageHeader
         title="Disbursements"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Disbursements']}
+        breadcrumbs={['BAS', 'Disbursements']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('CHECKS_ISSUED', { fiscalYear })}>Checks issued</Link>

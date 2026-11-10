@@ -39,7 +39,7 @@ export function PettyCashPage() {
       <PageHeader
         title="Petty Cash"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Petty Cash']}
+        breadcrumbs={['BAS', 'Petty Cash']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('PCR', { fiscalYear, month })}>Petty Cash Record</Link>

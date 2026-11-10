@@ -4,8 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { api, errorMessage } from '../services/functions/api';
 
 /**
- * Shown to a signed-in person with no BFMS role: a new Google sign-up waiting for the Municipal
- * Accountant, or an account whose roles were removed. Opens BFMS by itself once a role is assigned
+ * Shown to a signed-in person with no BAS role: a new Google sign-up waiting for the Municipal
+ * Accountant, or an account whose roles were removed. Opens BAS by itself once a role is assigned
  * (the profile listener refreshes the token when claimsVersion changes).
  */
 export function AccessPendingPage() {
@@ -33,9 +33,9 @@ export function AccessPendingPage() {
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted">
           {inactive
-            ? 'Ask the Municipal Accounting Office to turn your BFMS account back on.'
+            ? 'Ask the Municipal Accounting Office to turn your BAS account back on.'
             : pending || (google && !profile)
-              ? 'Your request has been sent to the Municipal Accounting Office. BFMS opens here by itself once they assign your role and barangay.'
+              ? 'Your request has been sent to the Municipal Accounting Office. BAS opens here by itself once they assign your role and barangay.'
               : 'Ask the Municipal Accounting Office to assign your role and barangay.'}
         </p>
         <div className="mt-5 rounded-xl2 border border-line bg-sunken px-4 py-3 text-left text-sm">

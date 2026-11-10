@@ -17,7 +17,7 @@ export function AdminPage() {
   const visible = TABS.filter((t) => t !== 'Users & roles' || can('admin.users.manage', 'ALL'));
   return (
     <>
-      <PageHeader title="Administration" breadcrumbs={['BFMS', 'Administration']} />
+      <PageHeader title="Administration" breadcrumbs={['BAS', 'Administration']} />
       <Tabs<(typeof TABS)[number]> tabs={visible} value={tab} onChange={setTab} label="Administration sections" idPrefix="admin" />
       <div id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${visible.indexOf(tab)}`}>
         {tab === 'Users & roles' && <UsersPanel />}

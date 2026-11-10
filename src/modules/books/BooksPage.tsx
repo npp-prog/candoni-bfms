@@ -204,7 +204,7 @@ export function BooksPage() {
       <PageHeader
         title="Books of Accounts"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Accounting', 'Books']}
+        breadcrumbs={['BAS', 'Accounting', 'Books']}
         actions={
           <>
             <Link className="btn-secondary" to="/accounting">Journal entries</Link>

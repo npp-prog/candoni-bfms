@@ -27,7 +27,7 @@ export function LoginPage() {
       const code = (e as { code?: string }).code ?? '';
       setError(
         code === 'auth/operation-not-allowed'
-          ? 'Google sign-in is not turned on for BFMS yet. Ask the Municipal Accountant.'
+          ? 'Google sign-in is not turned on for BAS yet. Ask the Municipal Accountant.'
           : code === 'auth/unauthorized-domain'
             ? 'This web address is not allowed for Google sign-in yet. Ask the Municipal Accountant.'
             : code === 'auth/network-request-failed'
@@ -69,7 +69,7 @@ export function LoginPage() {
         <div className="relative flex items-center gap-3">
           <img src="/candoni-seal.png" alt="" className="h-12 w-12" />
           <div>
-            <div className="text-xl font-bold leading-tight text-navy-800">BFMS</div>
+            <div className="text-xl font-bold leading-tight text-navy-800">BAS</div>
             <div className="text-2xs text-slate-500">Municipality of Candoni · Negros Occidental</div>
           </div>
         </div>
@@ -92,9 +92,9 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8">
             <img src="/candoni-seal.png" alt="Seal of the Municipality of Candoni" className="mb-5 h-20 w-20 lg:hidden" />
-            <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#77959f]">Barangay Financial Management System</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#77959f]">Barangay Accounting System</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-navy-800">Welcome back.</h1>
-            <p className="mt-2 text-sm text-[#788d97]">Sign in with your BFMS account.</p>
+            <p className="mt-2 text-sm text-[#788d97]">Sign in with your BAS account.</p>
           </div>
           <form onSubmit={submit} className="space-y-4" aria-describedby={error ? 'login-error' : undefined}>
             <div>
@@ -169,7 +169,7 @@ export function LoginPage() {
             Continue with Google
           </button>
           <p className="mt-3 text-center text-xs text-muted">
-            New to BFMS? Continue with Google to request access. The Municipal Accountant assigns your role.
+            New to BAS? Continue with Google to request access. The Municipal Accountant assigns your role.
           </p>
         </div>
       </div>

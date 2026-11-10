@@ -103,7 +103,7 @@ export function SnapshotPage() {
         <PageHeader
           title={`${meta.title} · v${meta.version}`}
           subtitle={`${meta.reportingPeriod?.label ?? meta.periodKey} · generated ${meta.generatedAt ? new Date(meta.generatedAt.seconds * 1000).toLocaleString('en-PH') : ''}`}
-          breadcrumbs={['BFMS', 'Reports', 'Saved versions', meta.reportCode]}
+          breadcrumbs={['BAS', 'Reports', 'Saved versions', meta.reportCode]}
           actions={
             <>
               <Link className="btn-ghost" to="/reports/generated">Saved versions</Link>

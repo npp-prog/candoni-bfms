@@ -19,7 +19,7 @@ export function PropertyPage() {
       <PageHeader
         title="Property & Inventory"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Property']}
+        breadcrumbs={['BAS', 'Property']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('RSMI', { fiscalYear })}>RSMI</Link>

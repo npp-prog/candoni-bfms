@@ -46,7 +46,7 @@ export function TrustFundsPage() {
       <PageHeader
         title="Special Trust Funds"
         subtitle={`${barangayLabel} · funds received for specific purposes (Trust Liabilities 2-03-01-010)`}
-        breadcrumbs={['BFMS', 'Trust Funds']}
+        breadcrumbs={['BAS', 'Trust Funds']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('RSTF', { fiscalYear, month: Number(manilaToday().slice(5, 7)) })}>Registry (RSTF)</Link>

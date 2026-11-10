@@ -16,7 +16,7 @@ export function SetupPage() {
   const { barangayLabel } = useBarangay();
   return (
     <>
-      <PageHeader title="Barangay Setup" subtitle={barangayLabel} breadcrumbs={['BFMS', 'Setup']} />
+      <PageHeader title="Barangay Setup" subtitle={barangayLabel} breadcrumbs={['BAS', 'Setup']} />
       <ModuleTabs
         label="Setup sections"
         tabs={[

@@ -70,7 +70,7 @@ export function AppLayout() {
         <div className="flex items-center gap-2.5 px-2 pb-4">
           <img src="/candoni-seal.png" alt="" className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[1.02rem] font-bold leading-tight tracking-[-.035em] text-ink">Barangay Financial Management System</div>
+            <div className="text-[1.02rem] font-bold leading-tight tracking-[-.035em] text-ink">Barangay Accounting System</div>
             <div className="mt-0.5 text-[.7rem] leading-snug text-muted">Municipal Government of Candoni</div>
           </div>
         </div>
@@ -130,7 +130,7 @@ export function AppLayout() {
           </button>
           <div className="hidden min-w-0 items-center gap-2.5 text-[1.05rem] font-medium text-ink sm:flex">
             <BarangayLogo barangayId={barangayId} />
-            <span className="truncate">{barangayId ? `Barangay ${barangayName(barangayId)}` : 'BFMS'}</span>
+            <span className="truncate">{barangayId ? `Barangay ${barangayName(barangayId)}` : 'BAS'}</span>
           </div>
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-3">
             <div className="flex items-center gap-1 rounded-md2 border border-line-2 bg-white px-1.5 py-1 shadow-[0_1px_1px_rgba(15,23,42,.04)]">

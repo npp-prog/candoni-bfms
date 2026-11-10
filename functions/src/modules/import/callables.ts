@@ -152,7 +152,7 @@ async function readState(tx: Transaction | null, bid: BarangayId, fy: number) {
   else {
     if (state.openingPosted) blocked.OPENING = `Period ${fy}-00 already has posted opening entries; opening balances cannot be imported again.`;
     if (state.journalImported) blocked.JOURNAL = `The ${fy} journal of ${bid} was already imported. Posted entries are never replaced: correct differences with adjusting entries.`;
-    else if (state.otherPostedEntries) blocked.JOURNAL = `${bid} ${fy} already has posted journal entries encoded in BFMS; importing the legacy journal now would put JEV numbers out of date order.`;
+    else if (state.otherPostedEntries) blocked.JOURNAL = `${bid} ${fy} already has posted journal entries encoded in BAS; importing the legacy journal now would put JEV numbers out of date order.`;
     if (state.legacyBalanceYears.length >= 2) blocked.PRIOR_YEARS = `Prior-year balances ${state.legacyBalanceYears.join(', ')} were already imported.`;
     if (state.cashAdvancesImported) blocked.CASH_ADVANCES = `Legacy cash advances of ${bid} ${fy} were already imported.`;
     if (state.ppeScheduleExists) blocked.PPE = `A ${fy} PPE schedule already exists; edit it in Schedules.`;

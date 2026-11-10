@@ -16,7 +16,7 @@ export function CollectionsPage() {
       <PageHeader
         title="Collections"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Collections']}
+        breadcrumbs={['BAS', 'Collections']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('CASHBOOK', { fiscalYear, month, variant: 'CASH_IN_TREASURY' })}>Cashbook (CLT)</Link>

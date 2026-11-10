@@ -127,7 +127,7 @@ function PpeEditor({ id, rows, onClose }: { id: string | null; rows: Array<WithI
         <Field label="Useful life (years)" required>{(p) => <input {...p} type="number" min={1} className="input num" value={f.usefulLifeYears} onChange={(e) => setF({ ...f, usefulLifeYears: Number(e.target.value) })} />}</Field>
         <Field label="Location">{(p) => <input {...p} className="input" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} />}</Field>
         <Field label="Accountable person">{(p) => <input {...p} className="input" value={f.accountablePerson} onChange={(e) => setF({ ...f, accountablePerson: e.target.value })} />}</Field>
-        <Field label="Opening accumulated depreciation" hint="For PPE acquired before BFMS.">{(p) => <MoneyInput {...p} value={f.openingAccumulatedDepreciation} onChange={(v) => setF({ ...f, openingAccumulatedDepreciation: v })} />}</Field>
+        <Field label="Opening accumulated depreciation" hint="For PPE acquired before BAS.">{(p) => <MoneyInput {...p} value={f.openingAccumulatedDepreciation} onChange={(v) => setF({ ...f, openingAccumulatedDepreciation: v })} />}</Field>
         <Field label="…as of month">{(p) => <input {...p} type="month" className="input" value={f.openingAsOfPeriod ?? ''} onChange={(e) => setF({ ...f, openingAsOfPeriod: e.target.value })} />}</Field>
         <Field label="Supplier / source">{(p) => <input {...p} className="input" value={f.supplierName} onChange={(e) => setF({ ...f, supplierName: e.target.value })} />}</Field>
         <Field label="Remarks" className="sm:col-span-3">{(p) => <input {...p} className="input" value={f.remarks} onChange={(e) => setF({ ...f, remarks: e.target.value })} />}</Field>

@@ -46,7 +46,7 @@ export function JournalEntriesPage() {
       <PageHeader
         title="Journal Entries"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Accounting', 'Journal']}
+        breadcrumbs={['BAS', 'Accounting', 'Journal']}
         actions={
           <>
             <Link className="btn-secondary" to="/books">Books &amp; trial balance</Link>
