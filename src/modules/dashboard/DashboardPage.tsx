@@ -77,7 +77,7 @@ function StatusRow({ barangayId, fiscalYear }: { barangayId: BarangayId; fiscalY
   const navigate = useNavigate();
   const { setBarangayId } = useBarangay();
   const scope = [['barangayId', '==', barangayId], ['fiscalYear', '==', fiscalYear]] as const;
-  const balances = useCollection<AccountBalanceDoc>('accountBalances', scope).rows;
+  const balances = useCollection<AccountBalanceDoc>('accountBalances', scope, { limit: 20000 }).rows;
   const pending = useCollection<JournalEntryDoc>('journalEntries', [...scope, ['status', 'in', ['DRAFT', 'FOR_REVIEW', 'RETURNED', 'APPROVED']]]).rows;
   const recons = useCollection<BankReconciliationDoc>('bankReconciliations', scope).rows;
   const banks = useCollection<BankAccountDoc>('bankAccounts', [['barangayId', '==', barangayId]]).rows.filter((b) => b.active);

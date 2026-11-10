@@ -5,14 +5,14 @@ import { EmptyState, TableSkeleton } from './ui';
 /** Route-based module tabs (each tab is a nested route), e.g. Budget → Appropriations | Obligations. */
 export function ModuleTabs({ tabs, label }: { tabs: Array<{ to: string; label: string; end?: boolean }>; label: string }) {
   return (
-    <nav aria-label={label} className="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
+    <nav aria-label={label} className="mb-5 flex w-fit max-w-full flex-wrap gap-1 rounded-xl bg-sunken p-1">
       {tabs.map((t) => (
         <NavLink
           key={t.to}
           to={t.to}
           end={t.end}
           className={({ isActive }) =>
-            `-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${isActive ? 'border-brand-600 font-semibold text-navy-900' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`
+            `flex min-h-[2.25rem] items-center whitespace-nowrap rounded-[9px] px-4 py-1.5 text-sm transition-colors ${isActive ? 'bg-white font-semibold text-navy-900 shadow-[0_1px_3px_rgba(15,23,42,.1)]' : 'font-semibold text-muted hover:bg-white/60 hover:text-ink'}`
           }
         >
           {t.label}
