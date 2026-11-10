@@ -142,7 +142,7 @@ export function ReportViewerPage() {
 function ParamBar({ builder, params, set }: { builder: ReportBuilder; params: ReportParams; set(k: string, v: string | number | null | undefined): void }) {
   const bid = params.barangayId;
   return (
-    <div className="card mb-4 flex flex-wrap items-end gap-4 p-4">
+    <div className="card mb-4 flex flex-wrap items-start gap-4 p-4">
       {builder.params === 'MONTH' && (
         <div>
           <label className="label" htmlFor="p-month">Month</label>

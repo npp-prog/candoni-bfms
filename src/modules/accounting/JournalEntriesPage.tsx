@@ -55,9 +55,9 @@ export function JournalEntriesPage() {
         }
       />
       {canPrepare && (
-        <nav aria-label="New entry by transaction type" className="mb-4 flex flex-wrap gap-2">
+        <nav aria-label="New entry by transaction type" className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           {TRANSACTION_TYPES.map((t) => (
-            <button key={t.code} type="button" className="btn-secondary btn-sm" onClick={() => setOpen({ id: null, type: t.code })}>
+            <button key={t.code} type="button" className="btn-secondary w-full" onClick={() => setOpen({ id: null, type: t.code })}>
               <Icon name="plus" /> {t.label.replace(/ \(.*\)$/, '')}
             </button>
           ))}

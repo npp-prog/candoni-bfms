@@ -30,7 +30,7 @@ export interface TransactionTypeDef {
 export const TRANSACTION_TYPES: readonly TransactionTypeDef[] = [
   {
     code: 'DISBURSEMENT',
-    label: 'Disbursement Voucher',
+    label: 'Disbursement',
     legacyNames: ['Disbursement Voucher', 'DV', 'Disbursement'],
     primaryLabel: 'Check no.',
     secondaryLabel: 'DV no.',

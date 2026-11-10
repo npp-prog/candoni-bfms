@@ -31,10 +31,10 @@ export function Icon({ name, className = 'h-4 w-4' }: { name: IconName; classNam
 
 export function PageHeader({ title, subtitle, actions, breadcrumbs }: { title: string; subtitle?: string; actions?: ReactNode; breadcrumbs?: string[] }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-6 flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         {breadcrumbs && (
-          <nav aria-label="Breadcrumb" className="mb-1 text-xs text-slate-600">
+          <nav aria-label="Breadcrumb" className="mb-1 text-xs text-muted">
             <ol className="flex flex-wrap items-center gap-1">
               {breadcrumbs.map((b, i) => (
                 <li key={i} className="flex items-center gap-1" aria-current={i === breadcrumbs.length - 1 ? 'page' : undefined}>
@@ -45,8 +45,8 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: { title: s
             </ol>
           </nav>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
+        <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-.025em] text-ink">{title}</h1>
+        {subtitle && <p className="mt-1.5 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -158,7 +158,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, idPrefix 
     refs.current[next]?.focus();
   }
   return (
-    <div role="tablist" aria-label={label} className="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
+    <div role="tablist" aria-label={label} className="mb-5 flex w-fit max-w-full flex-wrap gap-1 rounded-xl bg-sunken p-1">
       {tabs.map((t, i) => (
         <button
           key={t}
@@ -171,7 +171,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, idPrefix 
           tabIndex={value === t ? 0 : -1}
           onClick={() => onChange(t)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`-mb-px min-h-[2.5rem] border-b-2 px-4 py-2 text-sm transition-colors ${value === t ? 'border-brand-600 font-semibold text-navy-900' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-navy-700'}`}
+          className={`min-h-[2.25rem] whitespace-nowrap rounded-[9px] px-4 py-1.5 text-sm transition-colors ${value === t ? 'bg-white font-semibold text-navy-900 shadow-[0_1px_3px_rgba(15,23,42,.1)]' : 'font-semibold text-muted hover:bg-white/60 hover:text-ink'}`}
         >
           {t}
         </button>
