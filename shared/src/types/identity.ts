@@ -13,6 +13,8 @@ export interface UserDoc {
   claimsVersion: number;
   preferences?: { pageSize?: 25 | 50 | 100; theme?: 'light' | 'dark' | 'system' };
   lastLoginAt?: Ts | null;
+  /** Set when a person signs up with Google; cleared (APPROVED) when a role is assigned. */
+  accessRequest?: { status: 'PENDING' | 'APPROVED'; provider: 'google.com'; requestedAt: Ts; decidedAt?: Ts | null } | null;
   createdAt: Ts;
   updatedAt: Ts;
 }

@@ -8,7 +8,7 @@ import {
   type ScopedRoles,
   type UserDoc,
 } from '@bfms/shared';
-import { onIdTokenChanged, signInWithEmailAndPassword, signOut as fbSignOut, type User } from 'firebase/auth';
+import { GoogleAuthProvider, getRedirectResult, onIdTokenChanged, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut as fbSignOut, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { auth, db } from '../services/firebase/app';
@@ -24,7 +24,21 @@ interface AuthState {
   isAllScope: boolean;
   can(permission: Permission, barangayId: BarangayScope): boolean;
   signIn(email: string, password: string): Promise<void>;
+  /** Sign in (or sign up) with Google. Returns false when the person closed the Google window. */
+  signInWithGoogle(): Promise<boolean>;
   signOut(): Promise<void>;
+}
+
+const CANCELLED = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'];
+
+/** After a Google sign-in: register the person (access request) if new, then record the login. */
+async function afterGoogleSignIn() {
+  try {
+    const r = await api.requestAccess({});
+    if (r.status !== 'PENDING') await api.recordLogin({}).catch(() => undefined);
+  } catch {
+    /* the pending-access page retries */
+  }
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -76,6 +90,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [user, tokenVersion]);
 
+  // A popup-blocked sign-in falls back to a redirect; finish it when the page comes back.
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((r) => r && afterGoogleSignIn())
+      .catch(() => undefined);
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    const provider = new GoogleAuthProvider();
+    // Always ask which account, so a shared office computer does not sign in as the last user.
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      if (CANCELLED.includes(code)) return false;
+      if (code === 'auth/popup-blocked') {
+        await signInWithRedirect(auth, provider);
+        return true;
+      }
+      throw e;
+    }
+    await afterGoogleSignIn();
+    return true;
+  }, []);
+
   const signIn = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
     api.recordLogin({}).catch(() => undefined); // audit LOGIN; non-blocking
@@ -93,9 +133,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAllScope,
       can: (p, b) => hasPermission(assignments, p, b),
       signIn,
+      signInWithGoogle,
       signOut: () => fbSignOut(auth),
     };
-  }, [loading, user, profile, assignments, signIn]);
+  }, [loading, user, profile, assignments, signIn, signInWithGoogle]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

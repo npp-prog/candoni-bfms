@@ -13,6 +13,7 @@ import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { EmptyState, Field, Modal, Pager, Spinner, StatusChip, TableSkeleton } from '../../components/ui';
 import { useToast } from '../../contexts/ToastContext';
+import { useCollection } from '../../hooks/useCollection';
 import { usePaginatedQuery } from '../../hooks/usePaginatedQuery';
 import { auth, db } from '../../services/firebase/app';
 import { api, errorMessage } from '../../services/functions/api';
@@ -23,8 +24,40 @@ export function UsersPanel() {
   const page = usePaginatedQuery<UserDoc>(base, 25);
   const [creating, setCreating] = useState(false);
   const [assigning, setAssigning] = useState<(UserDoc & { id: string }) | null>(null);
+  async function decline(uid: string) {
+    try {
+      await api.setUserActive({ uid, active: false, reason: 'Access request declined.' });
+      notify('Request declined; the account is turned off.', 'info');
+    } catch (e) {
+      notify(errorMessage(e), 'error');
+    }
+  }
 
+  const requests = useCollection<UserDoc>('users', [['accessRequest.status', '==', 'PENDING']]).rows;
   return (
+    <>
+    {requests.length > 0 && (
+      <section className="card mb-4 border-gold-200" aria-labelledby="req-h">
+        <div className="card-header">
+          <div>
+            <h2 id="req-h" className="card-title">Access requests</h2>
+            <p className="text-xs text-muted">Signed up with Google. Assign a role and barangay to let them in, or turn the account off.</p>
+          </div>
+        </div>
+        <ul className="divide-y divide-line">
+          {requests.map((u) => (
+            <li key={u.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-ink">{u.displayName}</div>
+                <div className="text-sm text-muted">{u.email}{u.accessRequest?.requestedAt ? ` · requested ${new Date(u.accessRequest.requestedAt.toMillis()).toLocaleDateString('en-PH')}` : ''}</div>
+              </div>
+              <button type="button" className="btn-primary btn-sm" onClick={() => setAssigning(u)}>Assign role</button>
+              {u.active && <button type="button" className="btn-secondary btn-sm" onClick={() => void decline(u.id)}>Decline</button>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
     <div className="card">
       <div className="card-header">
         <h2 className="card-title">Users</h2>
@@ -42,7 +75,7 @@ export function UsersPanel() {
                   <td className="font-medium">{u.displayName}</td>
                   <td>{u.email}</td>
                   <td>{u.position}</td>
-                  <td>{u.active ? <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">Active</span> : <StatusChip status="DISABLED" />}</td>
+                  <td>{u.accessRequest?.status === 'PENDING' && u.active ? <span className="inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">Requested access</span> : u.active ? <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-inset ring-emerald-200">Active</span> : <StatusChip status="DISABLED" />}</td>
                   <td className="text-right"><button type="button" className="btn-ghost btn-sm" onClick={() => setAssigning(u)} aria-label={`Manage roles for ${u.displayName}`}>Roles…</button></td>
                 </tr>
               ))}
@@ -54,6 +87,7 @@ export function UsersPanel() {
       <CreateUserModal open={creating} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); void page.reload(); notify('User created. A password-setup email was sent.', 'success'); }} />
       {assigning && <AssignRolesModal user={assigning} onClose={() => setAssigning(null)} />}
     </div>
+    </>
   );
 }
 

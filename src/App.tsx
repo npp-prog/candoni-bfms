@@ -13,6 +13,7 @@ import { AdminPage } from './modules/administration/AdminPage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
 import { MODULE_ROUTES } from './modules/registry';
 import { ReportViewerPage } from './reports/ReportViewerPage';
+import { AccessPendingPage } from './pages/AccessPendingPage';
 import { LoginPage } from './pages/LoginPage';
 import { Forbidden, ModulePlaceholder, NotFound } from './pages/SimplePages';
 
@@ -20,8 +21,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { loading, user, assignments } = useAuth();
   if (loading) return <Spinner label="Checking your session…" />;
   if (!user) return <Navigate to="/login" replace />;
-  if (assignments.length === 0)
-    return <div className="p-8"><Forbidden /></div>;
+  if (assignments.length === 0) return <AccessPendingPage />;
   return <>{children}</>;
 }
 

@@ -15,6 +15,7 @@ function call<I, O>(name: string) {
 
 export const api = {
   recordLogin: call<Record<string, never>, { assignments: unknown[] }>('recordLogin'),
+  requestAccess: call<Record<string, never>, { status: 'PENDING' | 'APPROVED' | 'REGISTERED'; active: boolean }>('requestAccess'),
   createUserAccount: call<{ email: string; displayName: string; position?: string; defaultBarangayId?: BarangayScope | null }, { uid: string }>('createUserAccount'),
   setUserAssignment: call<{ uid: string; barangayId: BarangayScope; roles: RoleCode[]; validFrom?: string; validTo?: string | null; remarks?: string }, { assignmentId: string }>('setUserAssignment'),
   revokeUserAssignment: call<{ assignmentId: string; reason: string }, { ok: true }>('revokeUserAssignment'),

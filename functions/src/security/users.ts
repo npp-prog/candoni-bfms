@@ -7,11 +7,13 @@ import {
   manilaToday,
   type RoleCode,
   type UserAssignmentDoc,
+  type UserDoc,
 } from '@bfms/shared';
-import { HttpsError } from 'firebase-functions/v2/https';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AuditWriter } from '../audit/auditWriter';
-import { adminAuth, db, Timestamp } from '../lib/admin';
+import { adminAuth, db, REGION, Timestamp } from '../lib/admin';
 import { secureCallable } from '../lib/callable';
 import type { CallerContext } from '../lib/context';
 import { syncClaimsForUser } from './claims';
@@ -110,6 +112,8 @@ export const setUserAssignment = secureCallable(
         updatedBy: ctx.uid,
       };
       tx.create(ref, doc);
+      if ((user.get('accessRequest') as UserDoc['accessRequest'])?.status === 'PENDING')
+        tx.update(userRef, { 'accessRequest.status': 'APPROVED', 'accessRequest.decidedAt': now, updatedAt: now });
       audit.write({
         module: 'userAssignments',
         recordId: ref.id,
@@ -173,4 +177,46 @@ export const recordLogin = secureCallable(z.object({}).strict(), async (_input, 
     audit.commit();
   });
   return { assignments: ctx.assignments };
+});
+
+/**
+ * Google sign-up: the first time a person signs in with Google, register them in BFMS with no
+ * roles and an access request the Municipal Accountant sees under Administration → Users.
+ * They can use BFMS only after a role is assigned (setUserAssignment). Idempotent.
+ */
+export const requestAccess = onCall({ region: REGION, timeoutSeconds: 30, memory: '256MiB', enforceAppCheck: false }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const token = req.auth.token;
+  if (token.firebase?.sign_in_provider !== 'google.com') throw new HttpsError('failed-precondition', 'Access requests are made by signing in with Google.');
+  if (!token.email || token.email_verified !== true) throw new HttpsError('failed-precondition', 'Your Google account has no verified email address.');
+  const uid = req.auth.uid;
+  const email = String(token.email).toLowerCase();
+  const displayName = String(token.name ?? email.split('@')[0]).slice(0, 120);
+  const ref = db.collection(COL.users).doc(uid);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      const u = snap.data() as UserDoc;
+      return { status: u.accessRequest?.status ?? 'REGISTERED', active: u.active };
+    }
+    const ctx = { uid, userName: displayName, requestId: randomUUID(), rolesAt: () => [] as RoleCode[] };
+    const audit = await AuditWriter.begin(tx, ctx, 'SYSTEM');
+    const now = Timestamp.now();
+    const doc: UserDoc = {
+      uid,
+      email,
+      displayName,
+      position: '',
+      active: true,
+      defaultBarangayId: null,
+      claimsVersion: 0,
+      accessRequest: { status: 'PENDING', provider: 'google.com', requestedAt: now, decidedAt: null },
+      createdAt: now,
+      updatedAt: now,
+    };
+    tx.create(ref, doc);
+    audit.write({ module: 'users', recordId: uid, action: 'CREATE', newValue: { email, displayName, accessRequest: 'PENDING' }, source: 'callable:requestAccess' });
+    audit.commit();
+    return { status: 'PENDING', active: true };
+  });
 });
