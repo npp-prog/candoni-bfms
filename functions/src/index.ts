@@ -3,7 +3,7 @@
  * Phase 1: security, calendar, numbering, audit, JEV engine.
  * Phases 3–12: generic source-document engine (saveSource/sourceAction) + per-module callables.
  */
-export { createUserAccount, setUserAssignment, revokeUserAssignment, setUserActive, recordLogin } from './security/users';
+export { createUserAccount, setUserAssignment, revokeUserAssignment, setUserActive, recordLogin, requestAccess } from './security/users';
 export { onUserAssignmentWritten, resyncDatedAssignments } from './security/claims';
 export { seedReferenceData } from './admin/seed';
 export { setAllowSelfPost } from './admin/settings';
