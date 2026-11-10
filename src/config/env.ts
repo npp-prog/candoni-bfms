@@ -10,6 +10,11 @@ export const env = {
     appId: e.VITE_FIREBASE_APP_ID as string,
   },
   functionsRegion: (e.VITE_FUNCTIONS_REGION as string) || 'asia-southeast1',
-  appEnv: ((e.VITE_APP_ENV as string) || 'dev') as 'dev' | 'staging' | 'prod',
   useEmulators: e.VITE_USE_EMULATORS === 'true',
+  /**
+   * netlify.toml sets this per deploy context (production → prod). A production build with no
+   * value is the live system too, so it never shows the "not the official books" banner; only
+   * the dev server and emulator builds default to dev.
+   */
+  appEnv: ((e.VITE_APP_ENV as string) || (e.PROD && e.VITE_USE_EMULATORS !== 'true' ? 'prod' : 'dev')) as 'dev' | 'staging' | 'prod',
 };
