@@ -67,13 +67,14 @@ export function LoginPage() {
       <section className="relative hidden w-1/2 flex-col overflow-hidden bg-[#eaf2f5] px-[7%] py-8 lg:flex" aria-hidden="true">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_55%,#d4e6ec90,transparent_65%)]" />
         <div className="relative flex items-center gap-3">
-          <img src="/seal.svg" alt="" className="h-11 w-11" />
+          <img src="/candoni-seal.png" alt="" className="h-12 w-12" />
           <div>
             <div className="text-xl font-bold leading-tight text-navy-800">BFMS</div>
             <div className="text-2xs text-slate-500">Municipality of Candoni · Negros Occidental</div>
           </div>
         </div>
         <div className="relative my-auto max-w-lg">
+          <img src="/candoni-seal.png" alt="" className="mb-8 h-32 w-32 drop-shadow-sm" />
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[2px] text-[#6e8794]">
             <span className="h-px w-5 bg-clay" />
             Barangay accounting
@@ -90,7 +91,7 @@ export function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <img src="/seal.svg" alt="" className="mb-4 h-12 w-12 lg:hidden" />
+            <img src="/candoni-seal.png" alt="Seal of the Municipality of Candoni" className="mb-5 h-20 w-20 lg:hidden" />
             <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#77959f]">Barangay Financial Management System</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-navy-800">Welcome back.</h1>
             <p className="mt-2 text-sm text-[#788d97]">Sign in with your BFMS account.</p>

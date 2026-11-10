@@ -24,7 +24,7 @@ export function AccessPendingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-md text-center">
-        <img src="/seal.svg" alt="" className="mx-auto mb-5 h-14 w-14" />
+        <img src="/candoni-seal.png" alt="Seal of the Municipality of Candoni" className="mx-auto mb-5 h-20 w-20" />
         <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold-50 text-gold-700">
           <Icon name={inactive ? 'alert' : 'calendar'} className="h-6 w-6" />
         </span>

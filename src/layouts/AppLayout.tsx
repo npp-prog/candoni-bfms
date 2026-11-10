@@ -1,6 +1,7 @@
-import { type BarangayId } from '@bfms/shared';
+import { barangayName, type BarangayId } from '@bfms/shared';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { BarangayLogo } from '../components/BarangayLogo';
 import { Icon } from '../components/ui';
 import { env } from '../config/env';
 import { pathEnabled } from '../config/features';
@@ -67,7 +68,7 @@ export function AppLayout() {
         className={`${open ? 'flex' : 'hidden'} fixed inset-y-0 left-0 z-40 w-72 flex-col overflow-y-auto border-r border-line bg-white px-3.5 pb-5 pt-4 shadow-[8px_0_32px_rgba(0,0,0,.18)] lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[17rem] lg:shrink-0 lg:bg-side lg:shadow-none`}
       >
         <div className="flex items-center gap-2.5 px-2 pb-4">
-          <img src="/seal.svg" alt="" className="h-9 w-9 shrink-0" />
+          <img src="/candoni-seal.png" alt="" className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
             <div className="text-[1.02rem] font-bold leading-tight tracking-[-.035em] text-ink">Barangay Financial Management System</div>
             <div className="mt-0.5 text-[.7rem] leading-snug text-muted">Municipal Government of Candoni</div>
@@ -127,9 +128,9 @@ export function AppLayout() {
           >
             <Icon name={open ? 'x' : 'menu'} className="h-5 w-5" />
           </button>
-          <div className="hidden min-w-0 truncate text-[1.05rem] font-medium text-ink sm:block">
-            <span className="lg:hidden">BFMS</span>
-            <span className="hidden lg:inline">{isAllScope ? 'Municipal Accounting' : barangayId ? `Barangay ${barangayId}` : 'BFMS'}</span>
+          <div className="hidden min-w-0 items-center gap-2.5 text-[1.05rem] font-medium text-ink sm:flex">
+            <BarangayLogo barangayId={barangayId} />
+            <span className="truncate">{barangayId ? `Barangay ${barangayName(barangayId)}` : 'BFMS'}</span>
           </div>
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-3">
             <div className="flex items-center gap-1 rounded-md2 border border-line-2 bg-white px-1.5 py-1 shadow-[0_1px_1px_rgba(15,23,42,.04)]">
