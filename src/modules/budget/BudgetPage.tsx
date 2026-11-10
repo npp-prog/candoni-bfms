@@ -16,7 +16,7 @@ export function BudgetPage() {
       <PageHeader
         title="Budget"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Budget']}
+        breadcrumbs={['BAS', 'Budget']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('RAO', { fiscalYear })}>RAO</Link>

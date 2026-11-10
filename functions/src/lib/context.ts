@@ -35,7 +35,7 @@ export interface CallerContext {
 export async function loadCallerContext(uid: string, requestId: string): Promise<CallerContext> {
   const userSnap = await db.collection(COL.users).doc(uid).get();
   const user = userSnap.data() as UserDoc | undefined;
-  if (!user || !user.active) throw new HttpsError('permission-denied', 'Your account is inactive or not registered in BFMS.');
+  if (!user || !user.active) throw new HttpsError('permission-denied', 'Your account is inactive or not registered in BAS.');
 
   const today = manilaToday();
   const asgSnap = await db.collection(COL.userAssignments).where('uid', '==', uid).where('active', '==', true).get();

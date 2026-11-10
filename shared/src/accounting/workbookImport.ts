@@ -405,7 +405,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
           const name = cellText(row[h.cols.sl + 2]);
           if (IMPORT_ACCOUNT_RE.test(a) && /^[A-Z0-9-]{2,20}$/.test(s)) {
             if (!COA_MAP.has(a)) {
-              issue('WARNING', sh.acode, r + 1, 'UNKNOWN_ACCOUNT', `SL ${s} is under ${a}, which is not in the BFMS Chart of Accounts; skipped.`);
+              issue('WARNING', sh.acode, r + 1, 'UNKNOWN_ACCOUNT', `SL ${s} is under ${a}, which is not in the BAS Chart of Accounts; skipped.`);
               continue;
             }
             const k = slKey(a, s);
@@ -417,7 +417,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
         }
       }
       const extra = [...acodeAccounts].filter((c) => !COA_MAP.has(c));
-      if (extra.length) issue('WARNING', sh.acode, null, 'UNKNOWN_ACCOUNT', `ACODE lists ${extra.length} account(s) not in the BFMS Chart of Accounts (${extra.slice(0, 8).join(', ')}${extra.length > 8 ? ', …' : ''}); lines using them are rejected.`);
+      if (extra.length) issue('WARNING', sh.acode, null, 'UNKNOWN_ACCOUNT', `ACODE lists ${extra.length} account(s) not in the BAS Chart of Accounts (${extra.slice(0, 8).join(', ')}${extra.length > 8 ? ', …' : ''}); lines using them are rejected.`);
     }
   } else issue('WARNING', '(workbook)', null, 'NO_SHEET', 'No ACODE sheet: subsidiary ledger names cannot be imported.');
 
@@ -437,7 +437,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
     }
     const acct = COA_MAP.get(accountCode);
     if (!acct) {
-      issue('ERROR', sheet, row, 'UNKNOWN_ACCOUNT', `Account ${accountCode} is not in the BFMS Chart of Accounts.`, entryKey);
+      issue('ERROR', sheet, row, 'UNKNOWN_ACCOUNT', `Account ${accountCode} is not in the BAS Chart of Accounts.`, entryKey);
       return false;
     }
     if (sl && !acct.requiresSubsidiaryLedger && !slSet.has(slKey(accountCode, sl))) {
@@ -840,7 +840,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
           const s = sides(dr, cr);
           const net = s.debit - s.credit;
           if (net === 0) continue;
-          if (!COA_MAP.has(code)) issue('WARNING', sh.preTb!, r + 1, 'UNKNOWN_ACCOUNT', `${fy}: account ${code} is not in the BFMS Chart of Accounts (kept for comparatives).`);
+          if (!COA_MAP.has(code)) issue('WARNING', sh.preTb!, r + 1, 'UNKNOWN_ACCOUNT', `${fy}: account ${code} is not in the BAS Chart of Accounts (kept for comparatives).`);
           out.push({ accountCode: code, debit: (net > 0 ? net : 0) as Centavos, credit: (net < 0 ? -net : 0) as Centavos });
         }
         return out;
@@ -1019,7 +1019,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>, opts: ParseOp
         const cost = safeCentavos(row[bc.cost ?? 2]) ?? (0 as Centavos);
         const life = Number(row[bc.life!]);
         if (!COA_MAP.has(code)) {
-          issue('WARNING', sh.ppe, r + 1, 'UNKNOWN_ACCOUNT', `PPE account ${code} is not in the BFMS Chart of Accounts; skipped.`);
+          issue('WARNING', sh.ppe, r + 1, 'UNKNOWN_ACCOUNT', `PPE account ${code} is not in the BAS Chart of Accounts; skipped.`);
           continue;
         }
         if (!Number.isFinite(life) || life <= 0 || life > 100) {

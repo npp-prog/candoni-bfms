@@ -7,7 +7,7 @@ export function ModulePlaceholder() {
   const item = NAV.find((n) => pathname.startsWith(n.path));
   return (
     <>
-      <PageHeader title={item?.label ?? 'Module'} breadcrumbs={['BFMS', item?.label ?? '']} />
+      <PageHeader title={item?.label ?? 'Module'} breadcrumbs={['BAS', item?.label ?? '']} />
       <EmptyState icon="calendar" title={`Scheduled for Phase ${item?.phase ?? '—'}`} action={<Link className="btn-secondary" to="/dashboard">Back to dashboard</Link>}>
         This module is designed in <code>docs/architecture</code>. It is built in the order the development roadmap sets:
         foundations and the posting engine come first, and source modules follow.

@@ -30,7 +30,7 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         subtitle={`${many ? `${accessibleBarangays.length} barangays` : `Barangay ${barangayName(accessibleBarangays[0] as BarangayId)}`} · Fiscal Year ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Dashboard']}
+        breadcrumbs={['BAS', 'Dashboard']}
       />
       <section aria-labelledby="board-h" className="card">
         <div className="card-header">

@@ -15,7 +15,7 @@ export function ReportCenterPage() {
         path="*"
         element={
           <>
-            <PageHeader title="Report Center" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BFMS', 'Reports']} />
+            <PageHeader title="Report Center" subtitle={`${barangayLabel} · FY ${fiscalYear}`} breadcrumbs={['BAS', 'Reports']} />
             <ModuleTabs label="Report Center sections" tabs={[{ to: '/reports/catalog', label: 'All reports' }, { to: '/reports/generated', label: 'Saved versions' }]} />
             <Routes>
               <Route index element={<Navigate to="catalog" replace />} />

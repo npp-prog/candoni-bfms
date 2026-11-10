@@ -11,7 +11,7 @@ const MONEY_FMT = '#,##0.00;(#,##0.00);"-"';
 export async function exportReportXlsx(model: ReportModel, fileName: string): Promise<void> {
   const { default: ExcelJS } = await import('exceljs');
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'BFMS Candoni';
+  wb.creator = 'BAS Candoni';
   const ws = wb.addWorksheet(model.code.slice(0, 31), {
     pageSetup: { paperSize: PAPER[model.paper.size] as never, orientation: model.paper.orientation === 'LANDSCAPE' ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } },
   });

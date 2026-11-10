@@ -93,7 +93,7 @@ export function ReportViewerPage() {
         <PageHeader
           title={def.reportName}
           subtitle={`${barangayLabel} · FY ${params?.fiscalYear ?? fiscalYear}${def.formNumber ? ` · Form ${def.formNumber}` : ''}`}
-          breadcrumbs={['BFMS', 'Reports', def.reportCode]}
+          breadcrumbs={['BAS', 'Reports', def.reportCode]}
           actions={
             <>
               <Link className="btn-ghost" to="/reports">All reports</Link>

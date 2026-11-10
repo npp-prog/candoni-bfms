@@ -35,7 +35,7 @@ export function LiquidationsPage() {
       <PageHeader
         title="Liquidations"
         subtitle={`${barangayLabel} · FY ${fiscalYear} · Liquidation Reports of cash advances`}
-        breadcrumbs={['BFMS', 'Liquidations']}
+        breadcrumbs={['BAS', 'Liquidations']}
         actions={
           <>
             <Link className="btn-secondary" to="/cash-advances">Cash advances</Link>

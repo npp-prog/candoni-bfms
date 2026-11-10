@@ -57,7 +57,7 @@ export function CashAdvancesPage() {
       <PageHeader
         title="Cash Advances"
         subtitle={`${barangayLabel} · unliquidated advances of accountable officers`}
-        breadcrumbs={['BFMS', 'Cash Advances']}
+        breadcrumbs={['BAS', 'Cash Advances']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('CA_AGING', { fiscalYear, asOf: manilaToday() })}>Aging report</Link>
@@ -250,7 +250,7 @@ function LegacyEditor({ rec, onClose }: { rec: Ca | null; onClose(): void }) {
         </>
       }
     >
-      <p className="mb-3 text-sm text-slate-600">Opening balance of an advance granted before BFMS. Later liquidations go through the normal Liquidation Report workflow.</p>
+      <p className="mb-3 text-sm text-slate-600">Opening balance of an advance granted before BAS. Later liquidations go through the normal Liquidation Report workflow.</p>
       <div className="grid gap-3 sm:grid-cols-4">
         <Field label="Cash advance account" required className="sm:col-span-2">
           {(p) => (

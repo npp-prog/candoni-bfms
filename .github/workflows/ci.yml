@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main, development]
+  # "Run workflow" button on GitHub (Actions → CI): redeploys the backend from a phone or tablet.
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -26,19 +28,36 @@ jobs:
 
   deploy-backend:
     needs: verify
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     permissions: { contents: read, id-token: write }
+    env:
+      # Either Workload Identity Federation (vars GCP_WIF_PROVIDER + GCP_DEPLOY_SA) or a
+      # service-account key in the secret GCP_SA_KEY. With neither, the deploy is skipped.
+      HAS_WIF: ${{ vars.GCP_WIF_PROVIDER != '' }}
+      HAS_KEY: ${{ secrets.GCP_SA_KEY != '' }}
+      PROJECT: ${{ vars.FIREBASE_PROJECT_ID || (github.ref == 'refs/heads/main' && 'prod' || 'staging') }}
     steps:
+      - name: Deploy credentials configured?
+        if: env.HAS_WIF != 'true' && env.HAS_KEY != 'true'
+        run: echo "::warning::Backend not deployed — add the GCP_SA_KEY secret (or GCP_WIF_PROVIDER / GCP_DEPLOY_SA variables) and FIREBASE_PROJECT_ID variable. See docs/dev/DEPLOY.md."
       - uses: actions/checkout@v4
+        if: env.HAS_WIF == 'true' || env.HAS_KEY == 'true'
       - uses: actions/setup-node@v4
+        if: env.HAS_WIF == 'true' || env.HAS_KEY == 'true'
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      # Workload Identity Federation — no service-account key stored in GitHub.
+        if: env.HAS_WIF == 'true' || env.HAS_KEY == 'true'
       - uses: google-github-actions/auth@v2
+        if: env.HAS_WIF == 'true'
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/auth@v2
+        if: env.HAS_WIF != 'true' && env.HAS_KEY == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
       - name: Deploy rules, indexes, functions
-        run: npx firebase deploy --only firestore,storage,functions --project ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }} --non-interactive
+        if: env.HAS_WIF == 'true' || env.HAS_KEY == 'true'
+        run: npx firebase deploy --only firestore,functions --project "$PROJECT" --non-interactive --force

@@ -64,7 +64,7 @@ export function BankPage() {
       <PageHeader
         title="Bank Reconciliation"
         subtitle={`${barangayLabel} · FY ${fiscalYear}`}
-        breadcrumbs={['BFMS', 'Accounting', 'Bank Reconciliation']}
+        breadcrumbs={['BAS', 'Accounting', 'Bank Reconciliation']}
         actions={
           <>
             <Link className="btn-secondary" to={reportHref('BRS', rp)}>BRS</Link>

@@ -93,7 +93,7 @@ export function StatementsPage() {
       <PageHeader
         title="Financial Statements"
         subtitle={`${barangayLabel} · FY ${fiscalYear} · for the year ended December 31`}
-        breadcrumbs={['BFMS', 'Accounting', 'Financial statements']}
+        breadcrumbs={['BAS', 'Accounting', 'Financial statements']}
         actions={<Link className="btn-secondary" to={reportHref('TB', { fiscalYear, month: 12, variant: 'PRE_CLOSING' })}>Pre-closing trial balance</Link>}
       />
       <ModuleTabs label="Financial statements" tabs={[{ to: '/statements', label: 'Statements', end: true }, { to: '/statements/notes', label: 'Notes (narrative)' }]} />

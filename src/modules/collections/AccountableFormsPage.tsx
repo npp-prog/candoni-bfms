@@ -29,7 +29,7 @@ export function AccountableFormsPage() {
       <PageHeader
         title="Accountable Forms"
         subtitle={`${barangayLabel} · official receipts and other accountable forms`}
-        breadcrumbs={['BFMS', 'Accountable Forms']}
+        breadcrumbs={['BAS', 'Accountable Forms']}
         actions={<Link className="btn-secondary" to={reportHref('RAAF', { fiscalYear, month })}>RAAF</Link>}
       />
       <RegisterTable
